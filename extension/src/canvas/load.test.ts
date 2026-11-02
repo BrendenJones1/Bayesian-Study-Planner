@@ -108,6 +108,20 @@ describe("score validation", () => {
   it("missing items are dropped, never recorded as 0", () => {
     expect(normalizeScore({ score: 0, missing: true, workflow_state: "unsubmitted" }, 10)).toBeNull();
   });
+  it("negative scores and missing points_possible are dropped, never recorded as 0", () => {
+    expect(normalizeScore(g({ score: -1 }), 10)).toBeNull();
+    expect(normalizeScore(g({ score: 5 }), 0)).toBeNull();
+    expect(normalizeScore(g({ score: 5 }), null)).toBeNull();
+  });
+  it("loadCanvas stores no submission for an excused item", async () => {
+    const key = "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100";
+    const a = fixtures[key] as { submission: object }[];
+    const orig = a[2].submission;
+    a[2].submission = { submitted_at: "2026-09-20T18:00:00Z", score: null, excused: true, workflow_state: "graded" };
+    const { subs } = await run();
+    a[2].submission = orig;
+    expect(subs.map((s) => s.item_id)).toEqual(["assignment:100"]);
+  });
   it("exact 0 and exact 1 are passed through unchanged", () => {
     expect(normalizeScore(g({ score: 0 }), 10)).toEqual({ score: 0, bonus: false });
     expect(normalizeScore(g({ score: 10 }), 10)).toEqual({ score: 1, bonus: false });

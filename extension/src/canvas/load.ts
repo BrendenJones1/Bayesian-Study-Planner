@@ -58,9 +58,10 @@ export function normalizeScore(
   pointsPossible: number | null | undefined,
 ): { score: number; bonus: boolean } | null {
   if (!s || s.excused || s.missing || s.workflow_state !== "graded") return null;
-  if (s.score == null || !pointsPossible || pointsPossible <= 0) return null;
+  // No points_possible (null/0) means no fraction to compute: dropped. Negative scores are invalid: dropped, not turned into 0.
+  if (s.score == null || s.score < 0 || !pointsPossible || pointsPossible <= 0) return null;
   const f = s.score / pointsPossible;
-  return f > 1 ? { score: 1, bonus: true } : { score: Math.max(0, f), bonus: false };
+  return f > 1 ? { score: 1, bonus: true } : { score: f, bonus: false };
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Canvas JSON is untyped; fields are read defensively */
