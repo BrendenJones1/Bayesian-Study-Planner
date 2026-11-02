@@ -107,8 +107,11 @@ jobs:
             security-guidance@claude-plugins-official
             typescript-lsp@claude-plugins-official
             pyright-lsp@claude-plugins-official
+          # TEMPORARY: print the full transcript to find which tool calls were denied.
+          # The repo is public, so remove this once the run is diagnosed.
+          show_full_output: true
           claude_args: >-
-            --allowedTools "Bash(npm:*),Bash(npx:*),Bash(pytest:*),Bash(python:*),Bash(pip:*),Bash(ruff:*),Bash(git:*),Bash(gh:*),Edit,Write,Read,Glob,Grep,Task"
+            --allowedTools "Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(pytest:*),Bash(python:*),Bash(pip:*),Bash(ruff:*),Bash(git:*),Bash(gh:*),Bash(mkdir:*),Bash(cd:*),Bash(ls:*),Bash(cat:*),Bash(mv:*),Bash(cp:*),Bash(chmod:*),Bash(touch:*),Bash(echo:*),Bash(test:*),Edit,Write,Read,Glob,Grep,Task"
           prompt: |
             Implement GitHub issue #${{ github.event.issue.number }} in ${{ github.repository }}.
 
