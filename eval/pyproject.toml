@@ -8,4 +8,4 @@ dependencies = []
 dev = ["pytest", "ruff"]
 
 [tool.setuptools]
-packages = []
+packages = ["bsp_eval"]

@@ -8,4 +8,4 @@ dependencies = []
 dev = ["pytest", "ruff"]
 
 [tool.setuptools]
-py-modules = ["ingest_ubcgrades", "ingest_oulad", "fit", "publish"]
+packages = ["bsp_priors"]
