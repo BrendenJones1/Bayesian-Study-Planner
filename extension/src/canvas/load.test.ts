@@ -117,10 +117,28 @@ describe("score validation", () => {
     const key = "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100";
     const a = fixtures[key] as { submission: object }[];
     const orig = a[2].submission;
-    a[2].submission = { submitted_at: "2026-09-20T18:00:00Z", score: null, excused: true, workflow_state: "graded" };
-    const { subs } = await run();
-    a[2].submission = orig;
-    expect(subs.map((s) => s.item_id)).toEqual(["assignment:100"]);
+    try {
+      a[2].submission = { submitted_at: "2026-09-20T18:00:00Z", score: null, excused: true, workflow_state: "graded" };
+      const { subs } = await run();
+      expect(subs.map((s) => s.item_id)).toEqual(["assignment:100"]);
+    } finally {
+      a[2].submission = orig;
+    }
+  });
+  it("instructor-entered grades (graded, score, no submitted_at) are kept with null lead time", async () => {
+    const key = "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100";
+    const a = fixtures[key] as { submission: object }[];
+    const orig = a[1].submission;
+    try {
+      a[1].submission = { submitted_at: null, score: 80, workflow_state: "graded" };
+      const { subs } = await run();
+      expect(subs.find((s) => s.item_id === "assignment:101")).toEqual({
+        item_id: "assignment:101", submitted_at: null, due_at: "2026-10-10T12:00:00Z",
+        score: 0.8, bonus: false, lead_days: null,
+      });
+    } finally {
+      a[1].submission = orig;
+    }
   });
   it("exact 0 and exact 1 are passed through unchanged", () => {
     expect(normalizeScore(g({ score: 0 }), 10)).toEqual({ score: 0, bonus: false });

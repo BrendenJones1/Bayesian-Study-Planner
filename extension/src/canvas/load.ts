@@ -32,7 +32,7 @@ export interface CourseCache {
 }
 export interface Submission {
   item_id: string;
-  submitted_at: string;
+  submitted_at: string | null; // null for instructor-entered grades (e.g. paper exams)
   due_at: string | null;
   score: number; // fraction of points possible in [0, 1]
   bonus: boolean; // raw score exceeded 100% and was capped at 1
@@ -123,14 +123,14 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
     for (const a of assignments) {
       const s = a.submission;
       const n = normalizeScore(s, a.points_possible);
-      if (!s?.submitted_at || !n) continue;
+      if (!n) continue;
       await stores.putSubmission({
         item_id: `assignment:${a.id}`,
-        submitted_at: s.submitted_at,
+        submitted_at: s.submitted_at ?? null,
         due_at: a.due_at ?? null,
         score: n.score,
         bonus: n.bonus,
-        lead_days: a.due_at ? leadDays(a.due_at, s.submitted_at) : null,
+        lead_days: a.due_at && s.submitted_at ? leadDays(a.due_at, s.submitted_at) : null,
       });
     }
   }
