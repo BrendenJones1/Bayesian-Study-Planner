@@ -14,7 +14,7 @@ const fixtures: Record<string, unknown> = {
   "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100": [
     {
       id: 100, name: "HW1", due_at: "2026-09-10T12:00:00Z", assignment_group_id: 5, points_possible: 50,
-      score_statistics: { min: 10, mean: 35, max: 50 },
+      score_statistics: { min: 10, lower_q: 25, median: 36, upper_q: 45, max: 50, mean: 35 },
       submission: { submitted_at: "2026-09-08T12:00:00Z", score: 42 },
     },
     { id: 101, name: "Midterm", due_at: "2026-10-10T12:00:00Z", assignment_group_id: 5, points_possible: 100, submission: { submitted_at: null } },
@@ -54,11 +54,32 @@ describe("canvas loader", () => {
       ["assignment:102", "assignment", 20, 10, []],
       ["quiz:300", "assignment", null, 5, [10]],
     ]);
-    expect(c.items[0].class_stats).toEqual({ min: 10, mean: 35, max: 50 });
     expect(subs[0]).toEqual({
       item_id: "assignment:100", submitted_at: "2026-09-08T12:00:00Z",
       due_at: "2026-09-10T12:00:00Z", score: 42, lead_days: 2,
     });
+  });
+
+  it("requests score statistics with assignments; stores min, lower quartile, median, upper quartile, max, mean when present", async () => {
+    const urls: string[] = [];
+    const fetchFn = (async (url: string) => {
+      urls.push(url);
+      return new Response(JSON.stringify(fixtures[url.replace("https://canvas.ubc.ca/api/v1", "")] ?? []));
+    }) as unknown as typeof fetch;
+    await loadCanvas(createCanvasClient({ fetchFn }), { putCourse: async () => {}, putSubmission: async () => {} });
+    expect(urls.some((u) => u.includes("/assignments?") && u.includes("include[]=score_statistics"))).toBe(true);
+    const { courses } = await run();
+    expect(courses[0].items[0].class_stats).toEqual({ min: 10, lower_q: 25, median: 36, upper_q: 45, max: 50, mean: 35 });
+  });
+
+  it("missing statistics are recorded as null, never as zero", async () => {
+    const { courses } = await run();
+    expect(courses[0].items[1].class_stats).toBeNull(); // hidden entirely
+    const a = fixtures["/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100"] as { score_statistics?: unknown }[];
+    a[2].score_statistics = { min: 1, max: 9 }; // partial
+    const { courses: c2 } = await run();
+    delete a[2].score_statistics;
+    expect(c2[0].items[2].class_stats).toEqual({ min: 1, lower_q: null, median: null, upper_q: null, max: 9, mean: null });
   });
 
   it("lead_days computed as due_at minus submitted_at for every past submission", async () => {

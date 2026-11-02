@@ -10,8 +10,18 @@ export interface Item {
   weight: number | null;
   points: number | null;
   module_ids: number[];
-  class_stats: { min: number; mean: number; max: number } | null;
+  class_stats: ClassStats | null;
 }
+/** Canvas score_statistics; a field Canvas omits is null, never 0. */
+export interface ClassStats {
+  min: number | null;
+  lower_q: number | null;
+  median: number | null;
+  upper_q: number | null;
+  max: number | null;
+  mean: number | null;
+}
+const STAT_KEYS = ["min", "lower_q", "median", "upper_q", "max", "mean"] as const;
 export interface CourseCache {
   canvas_course_id: number;
   course_code: string;
@@ -68,7 +78,7 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       points: a.points_possible ?? null,
       module_ids: moduleIds("Assignment", a.id),
       class_stats: a.score_statistics
-        ? { min: a.score_statistics.min, mean: a.score_statistics.mean, max: a.score_statistics.max }
+        ? (Object.fromEntries(STAT_KEYS.map((k) => [k, a.score_statistics[k] ?? null])) as unknown as ClassStats)
         : null,
     }));
     // Graded quizzes already appear as assignments; keep only standalone ones.
