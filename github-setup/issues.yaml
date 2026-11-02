@@ -67,6 +67,19 @@ stories:
           - "extension/package.json defines lint, test and build scripts; priors/ and eval/ pass ruff and pytest"
           - "ci.yml runs all of them green on a PR"
           - "Do not edit .github/workflows/ (CLAUDE.md); request workflow changes in the PR body"
+      - title: "Local CI script: run exactly what CI runs before pushing"
+        labels: ["type:task", "area:infra", "priority:p1", "claude-ready"]
+        context: "The first PR passed the agent's own checks but failed CI, because CI runs ruff over the whole repo from the root and the agent never ran ruff. One script that CI and agents both run removes that gap. Tool versions are pinned so a new ruff release can't break CI overnight."
+        criteria:
+          - "requirements-dev.txt at the repo root pins exact versions of ruff and pytest"
+          - "scripts/ci-local.sh is executable and, from the repo root, runs the same steps as .github/workflows/ci.yml in the same order: extension (npm ci, lint, test, build), Python (pip install -r requirements-dev.txt, pip install -e priors and eval, ruff check ., pytest -q with exit code 5 allowed) and both guardrails (Canvas GET-only, host allowlist)"
+          - "Each part is skipped when its folder is missing, matching the hashFiles conditions in ci.yml"
+          - "Stops at the first failure, prints which step failed, and exits non-zero"
+          - "--fix runs ruff check --fix before the checks; without it the script changes no tracked files"
+          - "Runs on macOS (bash 3.2, BSD grep) and on Ubuntu: no GNU-only flags or bash 4 features"
+          - "PR body shows one passing run and one run with a deliberately added lint error that fails, then reverts it"
+          - "CLAUDE.md Commands says to run scripts/ci-local.sh before every push"
+          - "Do not edit .github/workflows/ (CLAUDE.md). In the PR body, give the exact ci.yml change for the human to apply: the Extension, Python and Guardrail run steps replaced by one step that runs scripts/ci-local.sh, so CI and local can't drift"
       - title: "Add CLAUDE.md and the Claude workflows (mentions, labeled issues, nightly)"
         labels: ["type:task", "area:infra", "priority:p1", "needs-human"]
         criteria:
