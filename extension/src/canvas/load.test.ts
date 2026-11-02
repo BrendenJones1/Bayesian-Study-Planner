@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCanvasClient } from "./client";
-import { loadCanvas, type CourseCache, type Submission } from "./load";
+import { loadCanvas, normalizeScore, type CourseCache, type Submission } from "./load";
 
 // Recorded-shape fixture responses keyed by path; no live Canvas.
 const fixtures: Record<string, unknown> = {
@@ -15,10 +15,10 @@ const fixtures: Record<string, unknown> = {
     {
       id: 100, name: "HW1", due_at: "2026-09-10T12:00:00Z", assignment_group_id: 5, points_possible: 50,
       score_statistics: { min: 10, lower_q: 25, median: 36, upper_q: 45, max: 50, mean: 35 },
-      submission: { submitted_at: "2026-09-08T12:00:00Z", score: 42 },
+      submission: { submitted_at: "2026-09-08T12:00:00Z", score: 42, workflow_state: "graded" },
     },
     { id: 101, name: "Midterm", due_at: "2026-10-10T12:00:00Z", assignment_group_id: 5, points_possible: 100, submission: { submitted_at: null } },
-    { id: 102, name: "HW2", due_at: "2026-09-20T12:00:00Z", assignment_group_id: 5, points_possible: 10, submission: { submitted_at: "2026-09-20T18:00:00Z", score: 7 } },
+    { id: 102, name: "HW2", due_at: "2026-09-20T12:00:00Z", assignment_group_id: 5, points_possible: 10, submission: { submitted_at: "2026-09-20T18:00:00Z", score: 7, workflow_state: "graded" } },
   ],
   "/courses/1/quizzes?per_page=100": [
     { id: 300, title: "Practice", assignment_id: null, points_possible: 5 },
@@ -56,7 +56,7 @@ describe("canvas loader", () => {
     ]);
     expect(subs[0]).toEqual({
       item_id: "assignment:100", submitted_at: "2026-09-08T12:00:00Z",
-      due_at: "2026-09-10T12:00:00Z", score: 42, lead_days: 2,
+      due_at: "2026-09-10T12:00:00Z", score: 0.84, bonus: false, lead_days: 2,
     });
   });
 
@@ -89,5 +89,59 @@ describe("canvas loader", () => {
 
   it("unit tests run against recorded fixture responses with no live Canvas", async () => {
     await expect(run()).resolves.toBeDefined(); // fetchFn is injected; global fetch never touched
+  });
+});
+
+describe("score validation", () => {
+  const g = (o: object) => ({ workflow_state: "graded", ...o });
+  it("scores above 100% (bonus marks) are capped at 1 and flagged", () => {
+    expect(normalizeScore(g({ score: 12 }), 10)).toEqual({ score: 1, bonus: true });
+  });
+  it("excused items are dropped, never recorded as 0", () => {
+    expect(normalizeScore(g({ score: null, excused: true }), 10)).toBeNull();
+    expect(normalizeScore(g({ score: 0, excused: true }), 10)).toBeNull();
+  });
+  it("ungraded items are dropped, never recorded as 0", () => {
+    expect(normalizeScore({ score: null, workflow_state: "submitted" }, 10)).toBeNull();
+    expect(normalizeScore(g({ score: null }), 10)).toBeNull();
+  });
+  it("missing items are dropped, never recorded as 0", () => {
+    expect(normalizeScore({ score: 0, missing: true, workflow_state: "unsubmitted" }, 10)).toBeNull();
+  });
+  it("negative scores and missing points_possible are dropped, never recorded as 0", () => {
+    expect(normalizeScore(g({ score: -1 }), 10)).toBeNull();
+    expect(normalizeScore(g({ score: 5 }), 0)).toBeNull();
+    expect(normalizeScore(g({ score: 5 }), null)).toBeNull();
+  });
+  it("loadCanvas stores no submission for an excused item", async () => {
+    const key = "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100";
+    const a = fixtures[key] as { submission: object }[];
+    const orig = a[2].submission;
+    try {
+      a[2].submission = { submitted_at: "2026-09-20T18:00:00Z", score: null, excused: true, workflow_state: "graded" };
+      const { subs } = await run();
+      expect(subs.map((s) => s.item_id)).toEqual(["assignment:100"]);
+    } finally {
+      a[2].submission = orig;
+    }
+  });
+  it("instructor-entered grades (graded, score, no submitted_at) are kept with null lead time", async () => {
+    const key = "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100";
+    const a = fixtures[key] as { submission: object }[];
+    const orig = a[1].submission;
+    try {
+      a[1].submission = { submitted_at: null, score: 80, workflow_state: "graded" };
+      const { subs } = await run();
+      expect(subs.find((s) => s.item_id === "assignment:101")).toEqual({
+        item_id: "assignment:101", submitted_at: null, due_at: "2026-10-10T12:00:00Z",
+        score: 0.8, bonus: false, lead_days: null,
+      });
+    } finally {
+      a[1].submission = orig;
+    }
+  });
+  it("exact 0 and exact 1 are passed through unchanged", () => {
+    expect(normalizeScore(g({ score: 0 }), 10)).toEqual({ score: 0, bonus: false });
+    expect(normalizeScore(g({ score: 10 }), 10)).toEqual({ score: 1, bonus: false });
   });
 });
