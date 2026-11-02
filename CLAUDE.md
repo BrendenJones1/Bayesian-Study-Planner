@@ -16,8 +16,12 @@ Read the relevant section before changing behaviour.
 - `shared/fixtures/` — golden test vectors shared by TypeScript and Python
 
 ## Commands
-- Extension: `cd extension && npm ci && npm test && npm run lint && npm run build`
-- Python: `pip install -e priors -e eval && pytest priors eval`
+Before every push, run exactly what CI runs, from the repo root:
+- If `scripts/ci-local.sh` exists: `scripts/ci-local.sh` (add `--fix` to auto-fix lint).
+- Otherwise:
+  - Extension: `cd extension && npm ci && npm run lint && npm test && npm run build`
+  - Python (repo root): `pip install ruff pytest -e priors -e eval && ruff check . && pytest -q`
+A PR whose CI fails is not done. Never claim a check passed unless you ran it.
 
 ## Hard rules (privacy and scope)
 1. **No student data leaves the browser.** No network calls except GET to
