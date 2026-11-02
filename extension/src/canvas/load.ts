@@ -34,7 +34,8 @@ export interface Submission {
   item_id: string;
   submitted_at: string;
   due_at: string | null;
-  score: number | null;
+  score: number; // fraction of points possible in [0, 1]
+  bonus: boolean; // raw score exceeded 100% and was capped at 1
   lead_days: number | null;
 }
 /** Minimal sink for the two IndexedDB stores (design doc, Data model). */
@@ -47,6 +48,20 @@ const DAY = 86_400_000;
 /** lead_days = due_at − submitted_at, in days (positive = early). */
 export const leadDays = (dueAt: string, submittedAt: string): number =>
   (Date.parse(dueAt) - Date.parse(submittedAt)) / DAY;
+
+/**
+ * Canvas submission -> model score, or null to drop it (excused, ungraded, missing).
+ * Exact 0 and 1 pass through untouched; only >1 is capped (design doc, Score validation).
+ */
+export function normalizeScore(
+  s: { score?: number | null; excused?: boolean; missing?: boolean; workflow_state?: string } | null | undefined,
+  pointsPossible: number | null | undefined,
+): { score: number; bonus: boolean } | null {
+  if (!s || s.excused || s.missing || s.workflow_state !== "graded") return null;
+  if (s.score == null || !pointsPossible || pointsPossible <= 0) return null;
+  const f = s.score / pointsPossible;
+  return f > 1 ? { score: 1, bonus: true } : { score: Math.max(0, f), bonus: false };
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Canvas JSON is untyped; fields are read defensively */
 export async function loadCanvas(client: Client, stores: Stores): Promise<void> {
@@ -106,12 +121,14 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
 
     for (const a of assignments) {
       const s = a.submission;
-      if (!s?.submitted_at) continue;
+      const n = normalizeScore(s, a.points_possible);
+      if (!s?.submitted_at || !n) continue;
       await stores.putSubmission({
         item_id: `assignment:${a.id}`,
         submitted_at: s.submitted_at,
         due_at: a.due_at ?? null,
-        score: s.score ?? null,
+        score: n.score,
+        bonus: n.bonus,
         lead_days: a.due_at ? leadDays(a.due_at, s.submitted_at) : null,
       });
     }
