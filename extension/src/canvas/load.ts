@@ -41,6 +41,8 @@ export interface Submission {
 /** Minimal sink for the two IndexedDB stores (design doc, Data model). */
 export interface Stores {
   putCourse(c: CourseCache): Promise<void>;
+  /** Optional: when given, student-confirmed due dates survive a reload. */
+  getCourse?(id: number): Promise<CourseCache | undefined>;
   putSubmission(s: Submission): Promise<void>;
 }
 
@@ -110,6 +112,10 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
         class_stats: null,
       });
     }
+
+    // Canvas still has no date for these; keep the one the student confirmed.
+    const old = await stores.getCourse?.(id);
+    for (const it of items) it.due_at ??= old?.items.find((o) => o.item_id === it.item_id)?.due_at ?? null;
 
     await stores.putCourse({
       canvas_course_id: id,
