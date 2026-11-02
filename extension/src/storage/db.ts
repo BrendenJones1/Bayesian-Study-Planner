@@ -1,0 +1,124 @@
+import type { CourseCache, Submission } from "../canvas/load";
+
+/** Design doc, Data model. Field names match the table there. */
+export interface StudySession {
+  session_id: string;
+  course_id: number;
+  module_id: number;
+  started_at: string;
+  ended_at: string;
+  active_minutes: number;
+}
+export interface QuizItem {
+  question_id: string;
+  module_id: number;
+  source_page: string;
+  difficulty_tag: string;
+  flagged: boolean;
+}
+export interface QuizAnswer {
+  question_id: string;
+  correct: boolean;
+  answered_at: string;
+}
+export interface Moments {
+  mean: number;
+  variance: number;
+}
+export interface Posterior {
+  course_id: number;
+  /** θ, u, v per module (means, variances), keyed by module id. */
+  modules: Record<string, { theta: Moments; u: Moments; v: Moments }>;
+  updated_at: string;
+}
+export interface Availability {
+  /** Singleton record. */
+  id: "default";
+  weekly_defaults: { day: number; minutes: number }[]; // day 0 = Sunday
+  busy_blocks: { start: string; end: string; label: string }[];
+}
+export interface FrozenPrediction {
+  item_id: string;
+  p_at_least_target: number;
+  interval: [number, number];
+  created_at: string;
+}
+
+/** store name -> [key path, record type]. */
+export interface Schema {
+  course_cache: CourseCache;
+  submission_history: Submission;
+  study_session: StudySession;
+  quiz_item: QuizItem;
+  quiz_answer: QuizAnswer;
+  posterior: Posterior;
+  availability: Availability;
+  frozen_prediction: FrozenPrediction;
+}
+export type StoreName = keyof Schema;
+
+const KEY_PATHS: { [K in StoreName]: string } = {
+  course_cache: "canvas_course_id",
+  submission_history: "item_id",
+  study_session: "session_id",
+  quiz_item: "question_id",
+  quiz_answer: "question_id",
+  posterior: "course_id",
+  availability: "id",
+  frozen_prediction: "item_id",
+};
+
+/**
+ * Migrations[i] upgrades schema version i to i + 1, so the current version is
+ * migrations.length. To change the schema, append a function; never edit old ones.
+ */
+export const MIGRATIONS: ((db: IDBDatabase, tx: IDBTransaction) => void)[] = [
+  (db) => {
+    for (const [name, keyPath] of Object.entries(KEY_PATHS)) db.createObjectStore(name, { keyPath });
+  },
+];
+export const SCHEMA_VERSION = MIGRATIONS.length;
+
+const wrap = <T>(req: IDBRequest<T>): Promise<T> =>
+  new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+export function openDb(
+  name = "study-planner",
+  migrations: typeof MIGRATIONS = MIGRATIONS,
+): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(name, migrations.length);
+    req.onupgradeneeded = (e) => {
+      const tx = req.transaction as IDBTransaction;
+      for (let v = e.oldVersion; v < migrations.length; v++) migrations[v](req.result, tx);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Typed access to one object store. */
+export function store<N extends StoreName>(db: IDBDatabase, name: N) {
+  const os = (mode: IDBTransactionMode) => db.transaction(name, mode).objectStore(name);
+  return {
+    put: (rec: Schema[N]) => wrap(os("readwrite").put(rec)).then(() => undefined),
+    get: (key: IDBValidKey) => wrap(os("readonly").get(key)) as Promise<Schema[N] | undefined>,
+    getAll: () => wrap(os("readonly").getAll()) as Promise<Schema[N][]>,
+    delete: (key: IDBValidKey) => wrap(os("readwrite").delete(key)),
+  };
+}
+
+/** One typed wrapper per store in the data model. */
+export const stores = (db: IDBDatabase) => ({
+  course_cache: store(db, "course_cache"),
+  submission_history: store(db, "submission_history"),
+  study_session: store(db, "study_session"),
+  quiz_item: store(db, "quiz_item"),
+  quiz_answer: store(db, "quiz_answer"),
+  posterior: store(db, "posterior"),
+  availability: store(db, "availability"),
+  frozen_prediction: store(db, "frozen_prediction"),
+});
