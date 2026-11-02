@@ -2,13 +2,13 @@ import { useState } from "react";
 import { undatedItems } from "../canvas/undated";
 import type { CourseCache } from "../canvas/load";
 
-/** Lists graded items with no due date; one click on Confirm saves the chosen date (end of that day, local time). */
+/** Lists graded items with no due date; Confirm hands the chosen day (YYYY-MM-DD) to onSet. */
 export function Undated({
   courses,
   onSet,
 }: {
   courses: CourseCache[];
-  onSet: (courseId: number, itemId: string, dueAt: string) => void;
+  onSet: (courseId: number, itemId: string, day: string) => void;
 }) {
   const [day, setDay] = useState<Record<string, string>>({});
   const rows = undatedItems(courses);
@@ -30,9 +30,7 @@ export function Undated({
               />
               <button
                 disabled={!day[key]}
-                onClick={() =>
-                  onSet(course.canvas_course_id, item.item_id, new Date(`${day[key]}T23:59:00`).toISOString())
-                }
+                onClick={() => onSet(course.canvas_course_id, item.item_id, day[key])}
               >
                 Confirm
               </button>

@@ -1,15 +1,33 @@
 import { useState } from "react";
 import type { CourseCache } from "../canvas/load";
-import { setDueAt } from "../canvas/undated";
+import { confirmDueAt } from "../canvas/undated";
 import { Undated } from "./Undated";
 
-// shortcut: courses come in as a prop; wiring to the IndexedDB course_cache and persisting confirmed dates across reloads is a later issue.
-export function App({ initial = [] }: { initial?: CourseCache[] }) {
+export function App({
+  initial = [],
+  save,
+}: {
+  initial?: CourseCache[];
+  save: (c: CourseCache) => Promise<void>;
+}) {
   const [courses, setCourses] = useState(initial);
+  const [failed, setFailed] = useState(false);
   return (
     <>
       <h1>Bayesian Study Planner</h1>
-      <Undated courses={courses} onSet={(c, i, d) => setCourses(setDueAt(courses, c, i, d))} />
+      {failed && <p role="alert">Could not save the date.</p>}
+      <Undated
+        courses={courses}
+        onSet={(c, i, d) =>
+          confirmDueAt(courses, c, i, d, save).then(
+            (next) => {
+              setFailed(false);
+              setCourses(next);
+            },
+            () => setFailed(true),
+          )
+        }
+      />
     </>
   );
 }
