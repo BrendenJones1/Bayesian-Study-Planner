@@ -55,7 +55,7 @@ jobs:
             typescript-lsp@claude-plugins-official
             pyright-lsp@claude-plugins-official
           claude_args: >-
-            --allowedTools "Bash(npm:*),Bash(npx:*),Bash(pytest:*),Bash(python:*),Bash(pip:*),Bash(ruff:*),Bash(git:*),Bash(gh:*),Edit,Write,Read,Glob,Grep,Task"
+            --allowedTools "Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(tsc:*),Bash(python:*),Bash(python3:*),Bash(pip:*),Bash(pytest:*),Bash(ruff:*),Bash(git:*),Bash(gh:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*),Bash(cp:*),Bash(mv:*),Bash(rm:*),Bash(touch:*),Bash(chmod:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(echo:*),Bash(cd:*),Bash(pwd),Bash(test:*),Bash(bash scripts/*),Bash(scripts/*),Edit,Write,Read,Glob,Grep,Task"
           prompt: |
             You are the nightly builder for ${{ github.repository }}. Do exactly one issue.
 
@@ -72,7 +72,9 @@ jobs:
                add needs-human, and stop.
             3. Branch claude/issue-<n>. Implement the smallest change that meets every
                criterion (Ponytail mode), with a test for each criterion. CLAUDE.md and the
-               acceptance criteria override minimalism. Run the relevant suites until they pass.
+               acceptance criteria override minimalism. Before pushing, run exactly what CI
+               runs from the repo root (scripts/ci-local.sh if it exists, else the CLAUDE.md
+               Commands) until it passes. Never claim a check passed unless you ran it.
             4. Open a DRAFT PR whose body starts with "Closes #<n>" and lists each
                criterion with how it was verified, plus anything you were unsure about.
                A separate reviewer agent will check it against the criteria.
