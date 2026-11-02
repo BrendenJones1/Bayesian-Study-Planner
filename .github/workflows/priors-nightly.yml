@@ -1,0 +1,65 @@
+# CD for the model: nightly, fit the population model and publish priors.json
+# to GitHub Pages. Skips cleanly until priors/ exists.
+# Requires: Settings -> Pages -> Source = "GitHub Actions".
+# Pages on a private repo needs GitHub Pro (free with the Student Developer Pack);
+# otherwise make the repo public.
+# Contract for the priors package: `python -m priors.publish --out site/priors.json`.
+
+name: Priors nightly
+
+on:
+  schedule:
+    - cron: "43 9 * * *"   # 1:43 AM Pacific Standard Time (09:43 UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        run: |
+          if [ -f priors/pyproject.toml ]; then echo "ready=true" >> "$GITHUB_OUTPUT";
+          else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "priors/ not scaffolded yet; skipping"; fi
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.ready == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Fit and publish priors
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          pip install -e priors
+          mkdir -p site
+          python -m priors.publish --out site/priors.json
+          test -s site/priors.json
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.check.outputs.ready == 'true'
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

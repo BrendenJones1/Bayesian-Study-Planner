@@ -1,0 +1,83 @@
+# Nightly builder: picks ONE claude-ready issue and opens a draft PR for morning review.
+# Opt in with:  gh variable set ENABLE_CLAUDE_NIGHTLY --body true
+# Runs count against the usage limits of the subscription behind CLAUDE_CODE_OAUTH_TOKEN.
+# Uses GH_PAT so the PR triggers CI and the reviewer agent (see claude.yml header).
+# Check https://github.com/anthropics/claude-code-action for current input names.
+
+name: Claude nightly
+
+on:
+  schedule:
+    - cron: "17 10 * * *"   # 2:17 AM Pacific Standard Time (10:17 UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
+concurrency:
+  group: claude-nightly
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    if: vars.ENABLE_CLAUDE_NIGHTLY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Language servers for the LSP plugins
+        run: npm install -g typescript typescript-language-server pyright
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GH_PAT }}
+          plugin_marketplaces: |
+            https://github.com/anthropics/claude-plugins-official.git
+            https://github.com/DietrichGebert/ponytail.git
+          plugins: |
+            ponytail@ponytail
+            security-guidance@claude-plugins-official
+            typescript-lsp@claude-plugins-official
+            pyright-lsp@claude-plugins-official
+          claude_args: >-
+            --allowedTools "Bash(npm:*),Bash(npx:*),Bash(pytest:*),Bash(python:*),Bash(pip:*),Bash(ruff:*),Bash(git:*),Bash(gh:*),Edit,Write,Read,Glob,Grep,Task"
+          prompt: |
+            You are the nightly builder for ${{ github.repository }}. Do exactly one issue.
+
+            1. Pick the issue:
+               - `gh issue list --state open --label claude-ready --json number,title,labels,milestone --limit 100`
+               - Exclude issues labeled needs-human or blocked.
+               - Exclude issues that already have an open PR
+                 (`gh pr list --state open --search "Closes #<n>"` returns anything).
+               - Among the rest, choose the earliest milestone due date,
+                 then priority:p1 before priority:p2, then the lowest issue number.
+               - If nothing qualifies, stop without changes.
+            2. Read CLAUDE.md, docs/design.md, docs/tradeoffs.md, the issue and its parent story.
+               If the criteria are ambiguous, comment with specific questions,
+               add needs-human, and stop.
+            3. Branch claude/issue-<n>. Implement the smallest change that meets every
+               criterion (Ponytail mode), with a test for each criterion. CLAUDE.md and the
+               acceptance criteria override minimalism. Run the relevant suites until they pass.
+            4. Open a DRAFT PR whose body starts with "Closes #<n>" and lists each
+               criterion with how it was verified, plus anything you were unsure about.
+               A separate reviewer agent will check it against the criteria.
+            5. Comment on the issue with a two-line summary and the PR link.
+
+            Never push to main, never merge, never edit .github/workflows/,
+            never add network calls other than Canvas and priors.json,
+            never add code that uploads student data.

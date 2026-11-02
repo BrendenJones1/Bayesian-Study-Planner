@@ -1,0 +1,90 @@
+# Second agent: an independent reviewer that checks every PR against the
+# linked issue's acceptance criteria, CLAUDE.md and the design docs.
+# It never edits code. It posts one review and sets a pass/fail status check
+# named "requirements-review" that you can make required on main.
+#
+# Runs with the default GITHUB_TOKEN, so its comments never trigger the coding
+# agent; you decide whether to reply "@claude please fix ...".
+# Check https://github.com/anthropics/claude-code-action for current input names.
+
+name: Claude review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  requirements-review:
+    # Forks never get secrets; only review branches in this repo.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Official review agents. Newline-separated if you add more.
+          plugin_marketplaces: |
+            https://github.com/anthropics/claude-plugins-official.git
+          plugins: |
+            pr-review-toolkit@claude-plugins-official
+          claude_args: >-
+            --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Glob,Grep,Write,Task"
+          prompt: |
+            You are the requirements reviewer for pull request #${{ github.event.pull_request.number }}
+            in ${{ github.repository }}. You did not write this code. Review it independently and
+            skeptically. Do NOT modify any file in the repository except the two output files below.
+
+            1. Read the PR: `gh pr view $PR --json title,body,files,headRefName` and `gh pr diff $PR`.
+            2. Find the linked issue from "Closes #N" in the PR body. Read it with
+               `gh issue view N --comments`, including its acceptance criteria and parent story.
+               If there is no linked issue, review against CLAUDE.md and docs/ only and say so.
+            3. Read CLAUDE.md, and the sections of docs/design.md and docs/tradeoffs.md that the
+               issue names.
+            4. For EVERY acceptance criterion: Met / Partly met / Not met, with file:line evidence,
+               and whether a test covers it. Do not infer that something works because the
+               PR description says so; check the code and tests.
+            5. Check every CLAUDE.md hard rule and model invariant: no network calls beyond Canvas
+               GETs and priors.json; Canvas is read-only; no logit applied to observed scores and no
+               epsilon clamping; one shared soft-day-count function used by model and planner;
+               OULAD never sets the scale of beta; no causal wording in UI copy; no workflow edits.
+            6. Flag over-engineering: dependencies, abstractions or files the criteria don't need.
+            7. Use the pr-review-toolkit agents if helpful for code quality, tests and silent failures.
+            8. Write the review to review.md with this structure:
+               **Verdict: PASS** or **Verdict: CHANGES REQUESTED**
+               a table of criteria (criterion | status | evidence | test?),
+               an invariants checklist, then findings ranked Blocking / Should fix / Nit.
+               Keep it under 600 words.
+            9. Post it: `gh pr review $PR --comment --body-file review.md`
+            10. Write exactly one word, PASS or CHANGES, to review-verdict.txt.
+                Use CHANGES if any criterion is Not met, any hard rule is broken,
+                or a required test is missing.
+
+      - name: Enforce verdict
+        run: |
+          v=$(tr -d '[:space:]' < review-verdict.txt 2>/dev/null || echo MISSING)
+          echo "Reviewer verdict: $v"
+          if [ "$v" = "PASS" ]; then
+            gh pr edit "$PR" --add-label "review:pass" --remove-label "review:changes" || true
+          else
+            gh pr edit "$PR" --add-label "review:changes" --remove-label "review:pass" || true
+            echo "::error::Requirements review did not pass (verdict: $v). See the review comment."
+            exit 1
+          fi

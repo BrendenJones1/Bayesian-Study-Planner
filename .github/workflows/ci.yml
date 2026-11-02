@@ -1,0 +1,73 @@
+# CI: runs on every PR and every push to main.
+# Each part switches on automatically once its folder exists, so this is safe
+# to add before the scaffold lands. Make the "ci" job a required status check.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- Extension (TypeScript) ----------
+      - uses: actions/setup-node@v4
+        if: hashFiles('extension/package.json') != ''
+        with:
+          node-version: 22
+
+      - name: Extension - install, lint, test, build
+        if: hashFiles('extension/package.json') != ''
+        working-directory: extension
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run lint --if-present
+          npm test --if-present
+          npm run build --if-present
+
+      # ---------- Python (priors, eval) ----------
+      - uses: actions/setup-python@v5
+        if: hashFiles('priors/pyproject.toml', 'eval/pyproject.toml') != ''
+        with:
+          python-version: "3.12"
+
+      - name: Python - install, lint, test
+        if: hashFiles('priors/pyproject.toml', 'eval/pyproject.toml') != ''
+        run: |
+          python -m pip install --upgrade pip ruff pytest
+          for d in priors eval; do
+            if [ -f "$d/pyproject.toml" ]; then pip install -e "$d"; fi
+          done
+          ruff check .
+          pytest -q || [ $? -eq 5 ]   # exit code 5 = no tests collected yet
+
+      # ---------- Guardrails from CLAUDE.md ----------
+      - name: Guardrail - no Canvas writes, no unexpected network hosts
+        if: hashFiles('extension/src/**') != ''
+        run: |
+          set -e
+          if grep -rEn "method:\s*['\"](POST|PUT|PATCH|DELETE)['\"]" extension/src/canvas 2>/dev/null; then
+            echo "::error::Canvas client must be GET-only (CLAUDE.md rule 2)"; exit 1
+          fi
+          hosts=$(grep -rhoE "https?://[a-zA-Z0-9.-]+" extension/src 2>/dev/null | sort -u || true)
+          bad=$(echo "$hosts" | grep -vE "canvas\.ubc\.ca|github\.io|www\.w3\.org|localhost|127\.0\.0\.1|^$" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Unexpected hosts in extension/src (CLAUDE.md rule 1):"; echo "$bad"; exit 1
+          fi
+
+      - name: Nothing to test yet
+        if: hashFiles('extension/package.json', 'priors/pyproject.toml', 'eval/pyproject.toml') == ''
+        run: echo "No packages scaffolded yet; CI passes trivially until they land."

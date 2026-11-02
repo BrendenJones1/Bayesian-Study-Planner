@@ -1,0 +1,477 @@
+# Bayesian Study Planner — GitHub issue plan
+# Parent issues are user stories; their `tasks` become linked sub-issues.
+# Edit freely, then run:  python create_issues.py --repo OWNER/REPO --dry-run
+#
+# Label conventions
+#   claude-ready  = well-specified code task; the nightly agent may pick it up
+#   claude-now    = add by hand to run the coding agent on one issue immediately
+#   needs-human   = judgment, data collection, or a decision only you can make
+#   type:stretch  = future goal; never blocks the Week 14 deliverable
+
+design_doc_url: "https://claude.ai/artifact/APGED2LzH7KKL9qvdp83iJ"
+tradeoffs_doc_url: "https://claude.ai/artifact/NPVVwP5BKWhYf24bYu4YKy"
+
+labels:
+  - {name: "type:story",     color: "5319e7", description: "User story (parent issue)"}
+  - {name: "type:task",      color: "1d76db", description: "Implementation task (sub-issue)"}
+  - {name: "type:spike",     color: "fbca04", description: "Time-boxed investigation"}
+  - {name: "type:stretch",   color: "c5def5", description: "Future / push goal (v2+)"}
+  - {name: "area:extension", color: "0e8a16", description: "Chrome extension, Canvas client, UI"}
+  - {name: "area:model",     color: "b60205", description: "Bayesian model, predictions"}
+  - {name: "area:planner",   color: "d93f0b", description: "Joint allocator, scheduling"}
+  - {name: "area:quiz",      color: "e99695", description: "On-device quiz generation"}
+  - {name: "area:priors",    color: "006b75", description: "Nightly Python priors job"}
+  - {name: "area:eval",      color: "0052cc", description: "Evaluation and model selection"}
+  - {name: "area:infra",     color: "bfdadc", description: "Repo, CI, automation"}
+  - {name: "area:docs",      color: "d4c5f9", description: "Report, README, presentation"}
+  - {name: "priority:p1",    color: "b60205", description: "Must ship for the course"}
+  - {name: "priority:p2",    color: "fbca04", description: "Should ship if time allows"}
+  - {name: "claude-ready",   color: "7057ff", description: "Specified well enough; the nightly agent may pick it"}
+  - {name: "claude-now",     color: "8a63d2", description: "Run the coding agent on this issue now"}
+  - {name: "needs-human",    color: "000000", description: "Requires Brenden's judgment, data or decision"}
+  - {name: "blocked",        color: "ededed", description: "Waiting on something else"}
+  - {name: "review:pass",    color: "0e8a16", description: "Reviewer agent: all criteria met"}
+  - {name: "review:changes", color: "d93f0b", description: "Reviewer agent: changes requested"}
+
+# due_on = Friday 11:59 PM Pacific of each course week (PST, UTC-8)
+milestones:
+  - {key: w9,     title: "Week 9 – Logging MVP",              due_on: "2026-11-07T07:59:00Z", description: "Canvas data, study timer, local storage, UBC Grades ingest. Me + friends start logging."}
+  - {key: w10,    title: "Week 10 – Model v1 (midterm break)", due_on: "2026-11-14T07:59:00Z", description: "Priors job on OULAD + UBC Grades, personal updates, frozen predictions."}
+  - {key: w11,    title: "Week 11 – Quizzes and planner",      due_on: "2026-11-21T07:59:00Z", description: "Module quizzes on device, exam-coverage extraction, joint planner."}
+  - {key: w12,    title: "Week 12 – Evaluation",               due_on: "2026-11-28T07:59:00Z", description: "LOO comparison, holdouts, prospective calibration, quiz validation."}
+  - {key: w13,    title: "Week 13 – Presentation video",       due_on: "2026-12-05T07:59:00Z", description: "Record and submit the presentation video."}
+  - {key: w14,    title: "Week 14 – Final deliverables",       due_on: "2026-12-12T07:59:00Z", description: "Report, README, packaged extension."}
+  - {key: future, title: "Future (v2+)",                       due_on: null,                   description: "Push goals. Never blocks the course deliverable."}
+
+stories:
+
+  # ---------------------------------------------------------------- Week 9
+  - key: E0
+    title: "Story: Repo, CI and automation are ready for agent-assisted work"
+    milestone: w9
+    labels: ["type:story", "area:infra", "priority:p1"]
+    story: "As the developer, I want scaffolding, CI and the Claude workflows in place so that well-specified issues can be implemented overnight and reviewed safely in the morning."
+    design_section: "Tech stack and repo structure"
+    tasks:
+      - title: "Scaffold the monorepo (extension, priors, eval, shared/fixtures)"
+        labels: ["type:task", "area:infra", "priority:p1", "claude-ready"]
+        criteria:
+          - "extension/: Vite + TypeScript + React, Chrome Manifest V3, host permission only for canvas.ubc.ca"
+          - "priors/ and eval/: Python 3.12 packages with pyproject.toml"
+          - "shared/fixtures/ exists with a README explaining golden test vectors"
+          - "Folder layout matches the design doc's repo tree"
+      - title: "CI: Vitest, pytest and lint on every pull request"
+        labels: ["type:task", "area:infra", "priority:p1", "claude-ready"]
+        context: "github-setup/workflows/ci.yml already exists and switches each part on when its folder appears. This task makes sure the scaffold's scripts plug into it."
+        criteria:
+          - "extension/package.json defines lint, test and build scripts; priors/ and eval/ pass ruff and pytest"
+          - "ci.yml runs all of them green on a PR"
+          - "Do not edit .github/workflows/ (CLAUDE.md); request workflow changes in the PR body"
+      - title: "Add CLAUDE.md and the Claude workflows (mentions, labeled issues, nightly)"
+        labels: ["type:task", "area:infra", "priority:p1", "needs-human"]
+        criteria:
+          - "CLAUDE.md, .claude/settings.json and all six workflows copied from github-setup/"
+          - "Secrets set: CLAUDE_CODE_OAUTH_TOKEN, GH_PAT; variable ENABLE_CLAUDE_NIGHTLY = true"
+          - "Branch protection on main: PR required, required checks ci and requirements-review"
+          - "docs/design.md and docs/tradeoffs.md exported from the design docs"
+          - "Pages source set to GitHub Actions (repo public, or GitHub Pro via the Student Pack)"
+          - "Smoke test passed: a trivial claude-ready issue produced a draft PR, CI ran, and the reviewer posted a verdict"
+      - title: "Confirm the course syllabus allows AI-assisted code for the project"
+        labels: ["type:spike", "area:docs", "priority:p1", "needs-human"]
+        criteria:
+          - "Answer recorded in this issue, with the syllabus wording or the instructor's reply"
+
+  - key: E1
+    title: "Story: My Canvas data loads automatically"
+    milestone: w9
+    labels: ["type:story", "area:extension", "priority:p1"]
+    story: "As a student, I want my courses, modules, deadlines, scores and submission times to load from Canvas automatically so that I never type them in."
+    design_section: "Data sources"
+    tasks:
+      - title: "Canvas API client using the student's session (GET only, paginated)"
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        criteria:
+          - "Fetches from canvas.ubc.ca/api/v1 with the existing session; follows Link-header pagination"
+          - "Only GET requests are possible from this module (enforced in code and tested)"
+          - "Retries with backoff on 429/5xx; surfaces auth errors to the UI"
+      - title: "Load courses, modules, module items, assignments, quizzes and own submissions"
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        criteria:
+          - "course_cache and submission_history stores populated per the design doc's data model"
+          - "lead_days computed as due_at minus submitted_at for every past submission"
+          - "Unit tests run against recorded fixture responses (no live Canvas in CI)"
+      - title: "Request assignment score statistics and fall back cleanly when hidden"
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        criteria:
+          - "Requests score statistics with assignments; stores min, lower quartile, median, upper quartile, max, mean when present"
+          - "Missing statistics are recorded as null, never as zero"
+      - title: "Validate and normalize scores before they reach the model"
+        labels: ["type:task", "area:extension", "area:model", "priority:p1", "claude-ready"]
+        context: "Design decision 20: graded items use a zero-and-one inflated beta, so exact 0% and 100% are valid. The client must still clean the data it hands the model."
+        criteria:
+          - "Scores above 100% (bonus marks) are capped at 1 and flagged in the UI"
+          - "Excused, ungraded and missing items are dropped, never recorded as 0"
+          - "Exact 0 and exact 1 are passed through unchanged (no epsilon clamping anywhere)"
+          - "Unit tests cover bonus, excused, missing, 0% and 100% cases"
+      - title: "One-click confirmation for exam dates missing from Canvas"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        criteria:
+          - "Popup lists graded items with no due date and lets the student set or confirm one"
+      - title: "Spike: concluded courses and the score-statistics threshold at UBCO"
+        labels: ["type:spike", "area:extension", "priority:p2", "needs-human"]
+        criteria:
+          - "Record whether concluded courses and their grades are visible to students"
+          - "Record the minimum graded count before Canvas shows statistics, if any"
+
+  - key: E2
+    title: "Story: Pressing Start studying logs my time"
+    milestone: w9
+    labels: ["type:story", "area:extension", "priority:p1"]
+    story: "As a student, I want to press Start studying on a module and have my time logged so that the planner knows my real study history."
+    design_section: "Data model"
+    tasks:
+      - title: "IndexedDB storage layer for all stores in the data model"
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        criteria:
+          - "Typed wrappers for course_cache, submission_history, study_session, quiz_item, quiz_answer, posterior, availability, frozen_prediction"
+          - "Schema version field and a migration path"
+      - title: "Study timer with module picker and idle detection"
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        criteria:
+          - "Start/stop from the popup; module required"
+          - "Idle over 10 minutes pauses the session and asks on return whether to keep the idle time"
+          - "active_minutes excludes idle time"
+      - title: "Edit and delete study sessions"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        criteria:
+          - "Session list per course with edit (minutes, module) and delete"
+      - title: "Export my data to a single JSON file"
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        criteria:
+          - "Exports every store; nothing is uploaded"
+          - "Includes schema version and export timestamp"
+      - title: "Ship the logging MVP to me and friends (load unpacked) with consent notes"
+        labels: ["type:task", "area:docs", "priority:p1", "needs-human"]
+        criteria:
+          - "Install instructions; each tester agrees in writing to send their export voluntarily"
+
+  - key: E3
+    title: "Story: Predictions make sense from day one"
+    milestone: w10
+    labels: ["type:story", "area:priors", "priority:p1"]
+    story: "As a student, I want predictions grounded in my course's history and published study research so that they are sensible before I have any grades."
+    design_section: "Statistical model; Research basis"
+    research: "Gelman 2006 (partial pooling); Heathcote et al. 2000 (saturating curve); Cepeda et al. 2006 (spacing); Edwards et al. 2009 and Kim & Seo 2015 (start time); Kuzilek et al. 2017 (OULAD)"
+    tasks:
+      - title: "Ingest UBC Grades (UBCO) into a cached course and instructor table"
+        milestone: w9
+        labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
+        criteria:
+          - "Python job pulls UBCO section distributions via the UBC Grades API v2 and caches them"
+          - "Never called from the extension; reruns are incremental"
+          - "Course-code parser maps Canvas course codes to subject/course/section, with tests for UBCO quirks"
+      - title: "Ingest OULAD and derive study dose, study days and lead time per assessment"
+        labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
+        context: "Design decision 24: OULAD informs the curve's shape, spacing and lead time only. Clicks are not hours (measurement non-equivalence), so OULAD must never set the scale of the study effect beta."
+        criteria:
+          - "Dose = clicks before each assessment, normalized by the student's median daily clicks (unitless), so only curve shape transfers"
+          - "Soft study days = sum over days of min(1, daily clicks / threshold), mirroring the min(1, minutes/30) definition used for UBC data"
+          - "Lead time = days submitted before the due date"
+          - "2013 presentations = train, 2014 = test; split saved to disk"
+          - "Module docstring states what OULAD may and may not inform, citing decision 24"
+      - title: "Fit the population model in PyMC (zero-and-one inflated beta for all graded items)"
+        previous_titles: ["Fit the population model in PyMC (exam + assignment likelihoods)"]
+        labels: ["type:task", "area:priors", "area:model", "priority:p1", "claude-ready"]
+        context: "Design decisions 20, 22 and 24. The logit link applies to the predicted mean, never to an observed score."
+        criteria:
+          - "Exams and assignments share one zero-and-one inflated beta likelihood with type-specific effect sizes; no logit is ever applied to observed scores"
+          - "Spacing uses the soft day count, sum of min(1, minutes/30)"
+          - "kappa, gamma and eta take OULAD-informed priors, widened for the population difference; beta gets only a weakly informative prior"
+          - "Convergence checked (R-hat, ESS) and reported in the job log"
+          - "Posterior summaries for beta, gamma, kappa, rho, eta and the inflation probabilities written to priors.json"
+      - title: "Publish priors.json to GitHub Pages nightly"
+        labels: ["type:task", "area:priors", "area:infra", "priority:p1", "claude-ready"]
+        criteria:
+          - "Implements `python -m priors.publish --out site/priors.json`, the entry point the provided priors-nightly.yml calls"
+          - "priors.json includes model_version and fitted_at"
+          - "Extension fetches it with caching and handles a missing or stale file"
+
+  - key: E4
+    title: "Story: My predictions update after every grade"
+    milestone: w10
+    labels: ["type:story", "area:model", "priority:p1"]
+    story: "As a student, I want my chance of hitting each target to update after every new grade so that it reflects how I am actually doing."
+    design_section: "Statistical model"
+    research: "Gelman 2006; Ospina & Ferrari 2012 (ZOIB); Pavlik et al. 2009 (logistic ability-minus-difficulty)"
+    tasks:
+      - title: "Laplace-approximation update for theta, u and v in TypeScript"
+        labels: ["type:task", "area:model", "priority:p1", "claude-ready"]
+        context: "Design decision 21: Laplace = posterior peak + curvature. Closed-form shrinkage doesn't fit beta/logistic likelihoods, and coordinate descent alone gives no uncertainty."
+        criteria:
+          - "Damped Newton steps (with line search) on the log posterior, starting from the prior mean, with population parameters fixed from priors.json"
+          - "If the Hessian is not positive definite or Newton fails to converge, fall back to the prior and log a warning"
+          - "Handles graded items (zero-and-one inflated beta) and quiz answers (logistic)"
+          - "Runs under 50 ms for a full term of data"
+      - title: "Golden-vector parity tests between Python and TypeScript"
+        labels: ["type:task", "area:model", "priority:p1", "claude-ready"]
+        criteria:
+          - "shared/fixtures/ holds inputs and expected posteriors produced by Python"
+          - "Vitest and pytest both pass against the same fixtures to 1e-6"
+          - "Fixtures include edge cases: one grade, all grades at 100%, a 0%, quizzes only"
+          - "Laplace means and 80% intervals compared with PyMC NUTS on the fixtures; interval coverage reported, and intervals widened if more than about 20% too narrow"
+      - title: "Posterior predictive P(score >= target) for a candidate plan"
+        labels: ["type:task", "area:model", "priority:p1", "claude-ready"]
+        criteria:
+          - "Given a plan, computes hours, study days and lead days by each due date"
+          - "Returns probability and an 80% predictive interval"
+      - title: "Freeze predictions before each grade is released"
+        labels: ["type:task", "area:model", "area:eval", "priority:p1", "claude-ready"]
+        criteria:
+          - "Prediction stored with timestamp when an item's due date passes, before any score appears"
+          - "Frozen records are never modified"
+
+  # ---------------------------------------------------------------- Week 11
+  - key: E5
+    title: "Story: Quiz me on a module from my own course files"
+    milestone: w11
+    labels: ["type:story", "area:quiz", "priority:p1"]
+    story: "As a student, I want short quizzes generated from a module's files on my own machine so that I learn by retrieval practice and the model learns what I understand."
+    design_section: "Module quizzes; Privacy, copyright and ethics"
+    research: "Roediger & Karpicke 2006 (testing effect); Dunlosky et al. 2013; Doughty et al. 2024 (generated MCQ quality)"
+    tasks:
+      - title: "Extract text from module files into ~300-word key-concept blocks"
+        previous_titles: ["Extract text from module PDFs and slides, split by page"]
+        labels: ["type:task", "area:quiz", "priority:p1", "claude-ready"]
+        context: "Design decision 25: Gemini Nano's context window is small; whole pages overflow it."
+        criteria:
+          - "pdf.js for PDF, a PPTX parser for slides; page numbers preserved"
+          - "Text split into key-concept blocks of about 300 words or fewer, never crossing a heading, each tagged with its source page"
+          - "Text cached in IndexedDB; never uploaded"
+      - title: "Gemini Nano availability check and fallback chain"
+        labels: ["type:task", "area:quiz", "priority:p1", "claude-ready"]
+        criteria:
+          - "Checks LanguageModel.availability() and shows download progress; targets the extensions Prompt API (Chrome 138+), no browser flags required"
+          - "Falls back to WebLLM, then optional own API key, then quizzes off, with a clear message at each step"
+      - title: "Question generation prompt with a strict JSON schema"
+        labels: ["type:task", "area:quiz", "priority:p1", "claude-ready"]
+        criteria:
+          - "One fresh session per key-concept block; each prompt checked with measureContextUsage() against session.contextWindow before sending"
+          - "QuotaExceededError is caught: the block is split in half and retried once"
+          - "Each question: stem, 4 options, answer index, explanation, cited page, difficulty tag"
+          - "Invalid JSON is retried once, then skipped"
+      - title: "Self-check filter and Report question button"
+        labels: ["type:task", "area:quiz", "priority:p1", "claude-ready"]
+        criteria:
+          - "Model answers each question blind; mismatches or 'ambiguous' are dropped"
+          - "Reported questions are flagged and excluded from the model"
+      - title: "Quiz UI and feeding answers into the model"
+        labels: ["type:task", "area:quiz", "area:model", "priority:p1", "claude-ready"]
+        criteria:
+          - "Immediate feedback with the cited page"
+          - "Answers update v for the module via the quiz likelihood"
+      - title: "One-time AI-policy notice before the first quiz"
+        labels: ["type:task", "area:quiz", "priority:p1", "claude-ready"]
+        criteria:
+          - "Explains on-device processing and asks the student to check their syllabus's AI policy"
+          - "Quizzes are only ever generated on an explicit click"
+
+  - key: E6
+    title: "Story: Exam coverage is detected for me"
+    milestone: w11
+    labels: ["type:story", "area:quiz", "priority:p2"]
+    story: "As a student, I want the extension to work out which modules each exam covers so that predictions and plans are right without manual setup."
+    design_section: "Module quizzes (exam-coverage extraction)"
+    tasks:
+      - title: "Map items to modules from Canvas module items"
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        criteria:
+          - "Items linked inside a module map to it automatically"
+      - title: "On-device extraction of coverage from announcements and the syllabus"
+        labels: ["type:task", "area:quiz", "priority:p2", "claude-ready"]
+        criteria:
+          - "Detects statements like 'Midterm 2 covers Modules 4-7' and proposes a mapping"
+      - title: "Confirm or edit the proposed mapping in one click"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        criteria:
+          - "Unconfirmed mappings are shown as provisional in predictions"
+
+  - key: E7
+    title: "Story: One plan across all my courses that respects when I'm busy"
+    milestone: w11
+    labels: ["type:story", "area:planner", "priority:p1"]
+    story: "As a student, I want one daily plan across every course that fits around my commitments so that I'm never double-booked and I see exam crunches weeks ahead."
+    design_section: "Planner"
+    research: "Fox 1966 and Federgruen & Groenevelt 1986 (greedy allocation); Chapelle & Li 2011 (Thompson sampling); Cepeda et al. 2006 (spacing)"
+    tasks:
+      - title: "Weekly availability and busy blocks"
+        labels: ["type:task", "area:planner", "priority:p1", "claude-ready"]
+        criteria:
+          - "Default weekday/weekend hours at onboarding; busy blocks with start, end and label"
+          - "Changes rerun the allocator immediately"
+      - title: "Joint allocator: exact convex solver with per-course and per-day caps"
+        previous_titles: ["Greedy joint allocator with per-course and per-day caps"]
+        labels: ["type:task", "area:planner", "priority:p1", "claude-ready"]
+        context: "Design decisions 22 and 23: with the soft day count min(1, minutes/30), the objective is concave and the constraints linear, so the plan is solved exactly as a convex program."
+        criteria:
+          - "Projected gradient ascent over minutes per (item, day) subject to daily capacity, per-course and per-day caps; result rounded to 30-minute blocks"
+          - "Spacing uses the same soft day count as the model"
+          - "An hour on a module counts once against capacity and adds gain to every item covering it"
+          - "Assignment work and exam study share the same capacity"
+          - "Solves 10 items x 30 days in under 100 ms in the browser"
+      - title: "Greedy heuristic for 'what now', tested against the exact solver"
+        previous_titles: ["Brute-force tests comparing greedy plans to optimal on small cases"]
+        labels: ["type:task", "area:planner", "area:eval", "priority:p2", "claude-ready"]
+        criteria:
+          - "Greedy marginal allocation in 30-minute blocks kept as the fast heuristic behind Start studying"
+          - "On random instances, objective gap between greedy and the convex solution is reported; test fails above a set tolerance"
+          - "Small instances also checked by brute force"
+      - title: "Crunch detection and explicit tradeoffs"
+        labels: ["type:task", "area:planner", "priority:p1", "claude-ready"]
+        criteria:
+          - "Warns weeks ahead when capacity before a cluster cannot cover targets, with the start-by date"
+          - "When targets are infeasible, offers concrete choices; never silently drops a course"
+      - title: "Thompson-sampled 'what now' on Start studying"
+        labels: ["type:task", "area:planner", "priority:p1", "claude-ready"]
+        criteria:
+          - "Samples parameters once, recommends the top block and shows the runner-up"
+      - title: "Start-date curve: P(score >= target) by start date in the popup"
+        labels: ["type:task", "area:extension", "area:planner", "priority:p1", "claude-ready"]
+        criteria:
+          - "Chart per item with the interval band; uses feasible hours only"
+          - "Copy reads 'students like you', never causal"
+
+  # ---------------------------------------------------------------- Week 12
+  - key: E8
+    title: "Story: The report's claims are backed by held-out evidence"
+    milestone: w12
+    labels: ["type:story", "area:eval", "priority:p1"]
+    story: "As the project author, I want each model component tested on unseen data so that every claim in the report is defensible."
+    design_section: "Evaluation and model selection; Research basis"
+    research: "Vehtari, Gelman & Gabry 2017 (PSIS-LOO); Plant et al. 2005"
+    tasks:
+      - title: "PSIS-LOO comparison of the six candidate models on OULAD"
+        labels: ["type:task", "area:eval", "priority:p1", "claude-ready"]
+        criteria:
+          - "az.compare table for models 1-6; terms that don't help held-out prediction are dropped"
+          - "Saturating vs log(1 + h) dose curve compared"
+          - "Soft vs integer study-day count compared"
+          - "Zero-and-one inflated beta checked with a posterior predictive histogram of scores, including the spikes at 0% and 100%"
+          - "OULAD 2014 test-set log loss and MAE reported"
+      - title: "UBC Grades temporal holdout for course and instructor baselines"
+        labels: ["type:task", "area:eval", "priority:p1", "claude-ready"]
+        criteria:
+          - "Predict each course's latest session from earlier ones; MAE vs last-session baseline"
+      - title: "Prospective calibration on pilot exports"
+        labels: ["type:task", "area:eval", "priority:p1", "needs-human"]
+        criteria:
+          - "Collect consented exports; Brier score and calibration plot from frozen predictions"
+          - "Report states the small sample honestly"
+      - title: "Hand-check a sample of generated quiz questions"
+        labels: ["type:task", "area:eval", "area:quiz", "priority:p1", "needs-human"]
+        criteria:
+          - "Error, ambiguity and flag rates per course, with the sample size"
+      - title: "Headline test: quiz accuracy vs study hours as exam predictors"
+        labels: ["type:task", "area:eval", "priority:p1", "claude-ready"]
+        criteria:
+          - "Compare predictive performance with hours only, quizzes only, and both"
+      - title: "Planner simulation: cram vs spaced vs planner"
+        labels: ["type:task", "area:eval", "area:planner", "priority:p2", "claude-ready"]
+        criteria:
+          - "Simulated students from the fitted model; predicted score distribution per strategy"
+
+  # ---------------------------------------------------------------- Weeks 13–14
+  - key: E9
+    title: "Story: Presentation video is submitted"
+    milestone: w13
+    labels: ["type:story", "area:docs", "priority:p1"]
+    story: "As the presenter, I want a clear demo and results video so that the class sees the product and the evidence."
+    design_section: "Evaluation and model selection"
+    tasks:
+      - title: "Script and slides for the presentation"
+        labels: ["type:task", "area:docs", "priority:p1", "needs-human"]
+        criteria:
+          - "Problem, architecture, research basis, live demo, results, limitations, future work"
+      - title: "Record and submit the video"
+        labels: ["type:task", "area:docs", "priority:p1", "needs-human"]
+        criteria:
+          - "Submitted before the Week 13 deadline"
+
+  - key: E10
+    title: "Story: Final deliverables are submitted"
+    milestone: w14
+    labels: ["type:story", "area:docs", "priority:p1"]
+    story: "As the author, I want the report, code and packaged extension submitted so that the project is complete and reusable."
+    design_section: "All"
+    tasks:
+      - title: "Final report with research basis, evaluation and limitations"
+        labels: ["type:task", "area:docs", "priority:p1", "needs-human"]
+        criteria:
+          - "Every model component cites its evidence and states how well it transferred"
+      - title: "README: install, privacy model, architecture, how to run the priors job"
+        labels: ["type:task", "area:docs", "priority:p1", "claude-ready"]
+        criteria:
+          - "Includes the architecture diagram and a privacy summary"
+      - title: "Package the extension (zip) and tag v1.0"
+        labels: ["type:task", "area:infra", "priority:p1", "claude-ready"]
+        criteria:
+          - "extension build outputs to extension/dist so the provided release.yml can zip it"
+          - "Tag v1.0.0 produces a GitHub release with the extension zip attached"
+
+# -------------------------------------------------------------------- Future (v2+)
+stretch:
+  - key: F1
+    title: "Stretch: Calendar import (free/busy only)"
+    labels: ["type:stretch", "area:planner", "priority:p2"]
+    story: "As a student, I want my calendar's busy times imported so that I don't enter commitments twice."
+    notes: "Read free/busy only from an .ics feed or Google Calendar, never event titles or details. Busy blocks feed planner capacity."
+
+  - key: F2
+    title: "Stretch: Shared class question bank (requires instructor buy-in)"
+    labels: ["type:stretch", "area:quiz", "area:model", "priority:p2", "needs-human"]
+    story: "As a student, I want quiz questions calibrated on many classmates' answers so that my quiz score is a much more accurate measure of understanding."
+    notes: |
+      Why: questions answered by many students get calibrated difficulties (proper item response theory), which makes each answer far more informative than with tagged difficulties.
+      Prerequisite: generated questions derive from course materials, so sharing them needs the instructor's agreement. This course's instructor has a PhD in and researches learning analytics, so a co-designed pilot (with research ethics approval if results are published) is plausible.
+      Requires a server and storage; see the Redis issue for caching.
+
+  - key: F3
+    title: "Stretch: Redis cache for the shared question bank"
+    labels: ["type:stretch", "area:infra", "priority:p2", "blocked"]
+    story: "As a student in a large class, I want shared questions served quickly so that quizzes load instantly."
+    notes: "Only meaningful after the shared bank exists (blocked by F2). Postgres alone is likely enough at class scale; add Redis only if read latency is measured to be a problem."
+
+  - key: F4
+    title: "Stretch: End-of-term data donation and yearly priors release"
+    labels: ["type:stretch", "area:priors", "priority:p2"]
+    story: "As a future student, I want last year's anonymized study and grade data in the priors so that predictions for my courses are more accurate."
+    notes: "Opt-in once after final grades. Per item: random ID, course, hours bucket, study days, quiz-accuracy bucket, score bucket. One release per year, only for courses with at least 10 donors, which removes the before/after differencing attack. Research use needs UBC ethics approval."
+
+  - key: F5
+    title: "Stretch: Optional sleep and wellbeing inputs"
+    labels: ["type:stretch", "area:model", "priority:p2"]
+    story: "As a student, I want to optionally log sleep so that the model can account for it."
+    notes: "Okano et al. 2019 found sleep measures explained nearly 25% of grade variance (correlational, one course). Health data: local only, never donated."
+
+  - key: F6
+    title: "Stretch: Higher-quality quizzes with the student's own API key"
+    labels: ["type:stretch", "area:quiz", "priority:p2"]
+    story: "As a student with an API key, I want a frontier model to write my quizzes so that questions are more accurate."
+    notes: "Content goes to the student's chosen provider; show a clear warning. Compare error rates against Gemini Nano."
+
+  - key: F7
+    title: "Stretch: Differential privacy on donated aggregates"
+    labels: ["type:stretch", "area:priors", "priority:p2"]
+    story: "As a donor, I want mathematically bounded privacy so that no one can infer my record from released priors."
+    notes: "Calibrated noise on released aggregates. Non-trivial to combine with a Bayesian fit; a good research add-on."
+
+  - key: F8
+    title: "Stretch: Chrome Web Store listing"
+    labels: ["type:stretch", "area:infra", "priority:p2", "needs-human"]
+    story: "As a student, I want to install from the Chrome Web Store so that setup takes one click."
+    notes: "Confirm with UBC's privacy office or LT Hub before public release. Store review can take days."
+
+  - key: F9
+    title: "Stretch: Support other Canvas schools"
+    labels: ["type:stretch", "area:extension", "priority:p2"]
+    story: "As a student at another university, I want the planner to work on my Canvas so that it isn't UBC-only."
+    notes: "Needs a replacement for UBC Grades history per school; Canvas class statistics still work."
