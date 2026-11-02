@@ -4,5 +4,6 @@
   "version": "0.0.0",
   "description": "Local-first study planner for UBC Canvas.",
   "action": { "default_popup": "popup.html" },
+  "permissions": ["idle"],
   "host_permissions": ["https://canvas.ubc.ca/*"]
 }

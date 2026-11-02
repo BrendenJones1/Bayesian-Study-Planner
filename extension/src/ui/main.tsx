@@ -5,5 +5,5 @@ import { openDb, stores } from "../storage/db";
 const root = createRoot(document.getElementById("root")!);
 void openDb().then(async (db) => {
   const courseCache = stores(db).course_cache;
-  root.render(<App initial={await courseCache.getAll()} save={courseCache.put} />);
+  root.render(<App initial={await courseCache.getAll()} save={courseCache.put} saveSession={stores(db).study_session.put} />);
 });
