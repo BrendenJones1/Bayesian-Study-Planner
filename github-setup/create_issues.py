@@ -45,7 +45,7 @@ class GH:
             return ""
         if self.dry and read_only:
             return ""
-        res = subprocess.run(cmd, input=stdin, capture_output=True, text=True)
+        res = subprocess.run(cmd, check=False, input=stdin, capture_output=True, text=True)
         if res.returncode != 0:
             raise RuntimeError(f"gh failed: {' '.join(cmd)}\n{res.stderr.strip()}")
         return res.stdout
@@ -102,8 +102,8 @@ def task_body(task: dict, story: dict, doc_url: str, tradeoffs_url: str = "") ->
     if story.get("research"):
         lines.append(f"Research basis: {story['research']}")
     if "claude-ready" in task.get("labels", []):
-        lines += ["", "_Agent note: follow CLAUDE.md. Open a draft PR whose body starts with "
-                  "`Closes #<this issue>` and shows how each criterion was verified._"]
+            lines += ["", ("_Agent note: follow CLAUDE.md. Open a draft PR whose body starts with "
+                "`Closes #<this issue>` and shows how each criterion was verified._")]
     return "\n".join(lines)
 
 
