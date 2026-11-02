@@ -74,8 +74,11 @@ jobs:
                Keep it under 600 words.
             9. Post it: `gh pr review $PR --comment --body-file review.md`
             10. Write exactly one word, PASS or CHANGES, to review-verdict.txt.
-                Use CHANGES if any criterion is Not met, any hard rule is broken,
-                or a required test is missing.
+                CHANGES only if: a criterion is Not met by its literal wording, a CLAUDE.md
+                hard rule is broken, or a testable criterion has no test at all. Do not add
+                requirements the criteria don't state. Changes listed under "Also changed"
+                in the PR body with a reason are not findings unless they break a rule.
+                Everything else is Should fix or Nit and does not block.
 
       - name: Enforce verdict
         run: |
