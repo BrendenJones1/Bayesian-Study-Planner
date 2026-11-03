@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { back, idle, resolveIdle, start, stop } from "./session";
 import { Timer, listenIdle, type IdleApi } from "../ui/Timer";
 import { openDb, stores } from "../storage/db";
+import { App } from "../ui/App";
 
 const MIN = 60_000;
 const course = { canvas_course_id: 7, course_code: "STAT 251", term: null, instructor: null, items: [], modules: [{ id: 2, name: "Week 1" }] };
@@ -68,5 +69,12 @@ describe("review fixes", () => {
     cb("locked");
     expect(t!.idleFrom).toBe(5 * MIN); // not backdated 10 min
     expect(stop(t!, 9 * MIN, "l").active_minutes).toBe(5);
+  });
+});
+
+describe("App wiring", () => {
+  it("renders the timer inside the popup App", () => {
+    const html = renderToStaticMarkup(<App initial={[course]} save={async () => {}} />);
+    expect(html).toContain("Start studying");
   });
 });

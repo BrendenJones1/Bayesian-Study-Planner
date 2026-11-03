@@ -6,7 +6,6 @@ import { deleteSession, editSession } from "../timer/sessions";
 import { Sessions } from "./Sessions";
 import { Undated } from "./Undated";
 import { Timer } from "./Timer";
-import type { StudySession } from "../storage/db";
 
 export function App({
   initial = [],
@@ -29,8 +28,8 @@ export function App({
   return (
     <>
       <h1>Bayesian Study Planner</h1>
-      {failed && <p role="alert">Could not save the date.</p>}
-      <Timer courses={courses} save={saveSession} />
+      {failed && <p role="alert">Could not save the change.</p>}
+      <Timer courses={courses} save={putSession} />
       <Undated
         courses={courses}
         onSet={(c, i, d) =>
