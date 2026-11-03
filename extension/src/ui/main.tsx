@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { openDb, stores } from "../storage/db";
+import { downloadJson, exportData } from "../storage/export";
 
 const root = createRoot(document.getElementById("root")!);
 void openDb().then(async (db) => {
@@ -13,6 +14,7 @@ void openDb().then(async (db) => {
       initialSessions={await sessions.getAll()}
       putSession={sessions.put}
       removeSession={sessions.delete}
+      onExport={async () => downloadJson(await exportData(db))}
     />,
   );
 });
