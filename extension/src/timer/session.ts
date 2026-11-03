@@ -22,10 +22,10 @@ export function start(course_id: number, module_id: number | null | undefined, n
   return { course_id, module_id, started: now, activeMs: 0, since: now, idleFrom: null, returnedAt: null };
 }
 
-/** Idle detected at `now`: the idle gap began IDLE_SECONDS ago. Pauses the session. */
-export function idle(t: Timer, now: number): Timer {
+/** Idle detected at `now`: the gap began IDLE_SECONDS ago, or at `now` if the screen was locked. Pauses the session. */
+export function idle(t: Timer, now: number, locked = false): Timer {
   if (t.since === null) return t;
-  const from = Math.max(t.since, now - IDLE_SECONDS * 1000);
+  const from = locked ? now : Math.max(t.since, now - IDLE_SECONDS * 1000);
   return { ...t, activeMs: t.activeMs + from - t.since, since: null, idleFrom: from };
 }
 

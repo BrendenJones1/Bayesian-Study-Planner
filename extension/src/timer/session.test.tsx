@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { back, idle, resolveIdle, start, stop } from "./session";
-import { Timer } from "../ui/Timer";
+import { Timer, listenIdle, type IdleApi } from "../ui/Timer";
 import { openDb, stores } from "../storage/db";
 
 const MIN = 60_000;
@@ -51,5 +51,22 @@ describe("criterion 3: active_minutes excludes idle time", () => {
     const paused = idle(start(7, 2, 0), 30 * MIN);
     expect(stop(paused, 90 * MIN, "p").active_minutes).toBe(20);
     expect(stop(back(paused, 50 * MIN), 90 * MIN, "q").active_minutes).toBe(20);
+  });
+});
+
+describe("review fixes", () => {
+  it("configures chrome.idle to 600 s and treats a lock as idle from now", () => {
+    let cb: (s: string) => void = () => {};
+    const calls: number[] = [];
+    const api: IdleApi = {
+      setDetectionInterval: (n) => calls.push(n),
+      onStateChanged: { addListener: (f) => (cb = f), removeListener: () => {} },
+    };
+    let t: ReturnType<typeof start> | null = start(7, 2, 0);
+    listenIdle(api, (f) => (t = f(t)), () => 5 * MIN);
+    expect(calls).toEqual([600]);
+    cb("locked");
+    expect(t!.idleFrom).toBe(5 * MIN); // not backdated 10 min
+    expect(stop(t!, 9 * MIN, "l").active_minutes).toBe(5);
   });
 });
