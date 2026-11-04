@@ -13,7 +13,7 @@ const item = (o: Partial<Item>): Item => ({
   module_ids: [], class_stats: null, ...o,
 });
 const course = (items: Item[]): CourseCache => ({
-  canvas_course_id: 7, course_code: "STAT 251", term: null, instructor: null, modules: [], items,
+  canvas_course_id: 7, course_code: "STAT 251", term: null, instructor: null, events: null, syllabus: null, announcements: null, modules: [], items,
 });
 
 describe("undated items", () => {

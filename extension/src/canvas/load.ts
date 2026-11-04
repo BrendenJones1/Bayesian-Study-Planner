@@ -49,6 +49,10 @@ export interface CourseCache {
   course_code: string;
   term: string | null;
   instructor: string | null;
+  /** null = Canvas gave us none (unavailable), distinct from an empty list/text. */
+  events: { title: string; start_at: string | null; end_at: string | null }[] | null;
+  syllabus: string | null; // plain text
+  announcements: { title: string; posted_at: string | null; message: string }[] | null;
   modules: { id: number; name: string }[];
   items: Item[];
 }
@@ -71,6 +75,22 @@ export interface Stores {
   getCourse?(id: number): Promise<CourseCache | undefined>;
   putSubmission(s: Submission): Promise<void>;
 }
+
+/** Strip tags, decode common entities. shortcut: regex because a service worker has no DOM; upgrade if layout matters. */
+export const htmlToText = (html: string): string =>
+  html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
+    .replace(/<\/(p|div|li|h\d|tr)>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n+/g, "\n")
+    .trim();
 
 const DAY = 86_400_000;
 /** lead_days = due_at − submitted_at, in days (positive = early). */
@@ -95,10 +115,17 @@ export function normalizeScore(
 /* eslint-disable @typescript-eslint/no-explicit-any -- Canvas JSON is untyped; fields are read defensively */
 export async function loadCanvas(client: Client, stores: Stores): Promise<void> {
   const courses = await client.getAll<any>(
-    "/courses?enrollment_state=active&include[]=term&include[]=teachers&per_page=100",
+    "/courses?enrollment_state=active&include[]=term&include[]=teachers&include[]=syllabus_body&per_page=100",
   );
   for (const c of courses) {
     const id = c.id;
+    // Any failure (403, 404, 5xx) is a gap recorded as null; the course still loads.
+    const orNull = <T,>(p: Promise<T>) => p.catch(() => null);
+    const ctx = `context_codes[]=course_${id}`;
+    const [events, announcements] = await Promise.all([
+      orNull(client.getAll<any>(`/calendar_events?${ctx}&all_events=true&per_page=100`)),
+      orNull(client.getAll<any>(`/announcements?${ctx}&start_date=2000-01-01&end_date=2100-01-01&per_page=100`)),
+    ]);
     const [modules, groups, assignments, quizzes] = await Promise.all([
       client.getAll<any>(`/courses/${id}/modules?include[]=items&per_page=100`),
       client.getAll<any>(`/courses/${id}/assignment_groups?per_page=100`),
@@ -175,6 +202,11 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       course_code: c.course_code,
       term: c.term?.name ?? null,
       instructor: c.teachers?.[0]?.display_name ?? null,
+      events: events && events.map((e) => ({ title: e.title, start_at: e.start_at ?? null, end_at: e.end_at ?? null })),
+      syllabus: typeof c.syllabus_body === "string" ? htmlToText(c.syllabus_body) : null,
+      announcements:
+        announcements &&
+        announcements.map((a) => ({ title: a.title, posted_at: a.posted_at ?? null, message: htmlToText(a.message ?? "") })),
       modules: modules.map((m) => ({ id: m.id, name: m.name })),
       items,
     });

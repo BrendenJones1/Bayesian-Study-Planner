@@ -7,7 +7,7 @@ import { openDb, stores } from "../storage/db";
 import { App } from "../ui/App";
 
 const MIN = 60_000;
-const course = { canvas_course_id: 7, course_code: "STAT 251", term: null, instructor: null, items: [], modules: [{ id: 2, name: "Week 1" }] };
+const course = { canvas_course_id: 7, course_code: "STAT 251", term: null, instructor: null, events: null, syllabus: null, announcements: null, items: [], modules: [{ id: 2, name: "Week 1" }] };
 
 describe("criterion 1: start/stop from the popup; module required", () => {
   it("start without a module throws", () => {
