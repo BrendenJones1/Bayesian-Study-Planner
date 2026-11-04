@@ -100,7 +100,7 @@ def test_criterion_3_ranks_are_within_each_presentation_not_pooled():
 
 
 def test_criterion_4_withdrawn_students_are_excluded():
-    study, exam, finals, split = o.build_tables(**make())
+    study, exam, finals, split, _ = o.build_tables(**make())
     for df in (study, exam, *finals.values(), split):
         assert not set(df.id_student) & WITHDRAWN
     assert len(split) == 84
@@ -162,3 +162,38 @@ def test_checkpoints_are_25_and_50_only():
     assert o.CHECKPOINTS == (25, 50)
     assert set(finals) == {25, 50}
     assert all(len(df) > 0 for df in finals.values())
+
+
+def test_active_share_is_active_days_over_days_elapsed_before_the_assessment():
+    clicks = pd.DataFrame({"id_student": [1, 1, 1, 1, 2, 2], "date": [-5, 0, 2, 5, 3, 12], "sum_click": [9] * 6})
+    got = o.active_share(clicks, pd.Index([1, 2, 3]), 10)  # days before the start and from day 10 on do not count
+    assert got.to_dict() == {1: 0.3, 2: 0.1, 3: 0.0}
+
+
+def test_study_cuts_are_thirds_of_active_share_from_train_students_only():
+    base = o.build_tables(**make())
+    cuts, split = base[4], base[3]
+    assert 0 < cuts["low_max"] <= cuts["med_max"] <= 1
+    test_ids = set(split[split.split == "test"].id_student)
+    d = make()
+    d["student_vle"].loc[d["student_vle"].id_student.isin(test_ids), "date"] = -1  # test students never active
+    assert o.build_tables(**d)[4] == cuts
+    d = make()
+    d["student_vle"].loc[~d["student_vle"].id_student.isin(test_ids), "date"] = -1  # train students never active
+    assert o.build_tables(**d)[4] != cuts
+
+
+def test_write_all_writes_the_study_cuts_file(tmp_path: Path):
+    import json
+
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    for k, f in zip(
+        ("info", "courses", "assessments", "student_assessment", "student_vle"),
+        ("studentInfo", "courses", "assessments", "studentAssessment", "studentVle"),
+    ):
+        make()[k].to_csv(raw / f"{f}.csv", index=False)
+    o.write_all(raw, tmp_path / "out")
+    got = json.loads((tmp_path / "out" / "oulad_study_cuts.json").read_text())
+    assert set(got) == {"active_day_share", "definition"}
+    assert set(got["active_day_share"]) == {"low_max", "med_max"}

@@ -1,0 +1,7 @@
+{
+ "active_day_share": {
+  "low_max": 0.1991701244813278,
+  "med_max": 0.40963855421686746
+ },
+ "definition": "share of days from the start of the presentation to the assessment with any VLE click; Low if <= low_max, Med if <= med_max, else High; thirds over train students, all assessments pooled"
+}

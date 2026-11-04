@@ -1,0 +1,151 @@
+{
+ "levels": [
+  "Low",
+  "Med",
+  "High"
+ ],
+ "stress_now": {
+  "train": {
+   "Low": {
+    "Low": 224,
+    "Med": 339,
+    "High": 136
+   },
+   "Med": {
+    "Low": 114,
+    "Med": 190,
+    "High": 117
+   },
+   "High": {
+    "Low": 146,
+    "Med": 196,
+    "High": 149
+   }
+  },
+  "test": {
+   "Low": {
+    "Low": 27,
+    "Med": 68,
+    "High": 63
+   },
+   "Med": {
+    "Low": 22,
+    "Med": 35,
+    "High": 45
+   },
+   "High": {
+    "Low": 8,
+    "Med": 14,
+    "High": 31
+   }
+  }
+ },
+ "stress_next": {
+  "train": {
+   "Low": {
+    "Low": {
+     "Low": 51,
+     "Med": 47,
+     "High": 9
+    },
+    "Med": {
+     "Low": 27,
+     "Med": 28,
+     "High": 8
+    },
+    "High": {
+     "Low": 35,
+     "Med": 27,
+     "High": 19
+    }
+   },
+   "Med": {
+    "Low": {
+     "Low": 44,
+     "Med": 102,
+     "High": 31
+    },
+    "Med": {
+     "Low": 22,
+     "Med": 68,
+     "High": 29
+    },
+    "High": {
+     "Low": 24,
+     "Med": 40,
+     "High": 26
+    }
+   },
+   "High": {
+    "Low": {
+     "Low": 15,
+     "Med": 40,
+     "High": 52
+    },
+    "Med": {
+     "Low": 10,
+     "Med": 22,
+     "High": 40
+    },
+    "High": {
+     "Low": 15,
+     "Med": 14,
+     "High": 50
+    }
+   }
+  },
+  "test": {
+   "Low": {
+    "Low": {
+     "Low": 5,
+     "Med": 8,
+     "High": 1
+    },
+    "Med": {
+     "Low": 10,
+     "Med": 6,
+     "High": 0
+    },
+    "High": {
+     "Low": 2,
+     "Med": 0,
+     "High": 2
+    }
+   },
+   "Med": {
+    "Low": {
+     "Low": 7,
+     "Med": 20,
+     "High": 9
+    },
+    "Med": {
+     "Low": 7,
+     "Med": 9,
+     "High": 6
+    },
+    "High": {
+     "Low": 0,
+     "Med": 5,
+     "High": 5
+    }
+   },
+   "High": {
+    "Low": {
+     "Low": 0,
+     "Med": 11,
+     "High": 31
+    },
+    "Med": {
+     "Low": 1,
+     "Med": 4,
+     "High": 18
+    },
+    "High": {
+     "Low": 1,
+     "Med": 4,
+     "High": 18
+    }
+   }
+  }
+ }
+}

@@ -115,3 +115,37 @@ def test_a_term_that_is_mostly_zero_days_still_gets_two_distinct_cut_points():
     wide = pd.DataFrame({"uid": ["u00"], **{d: [1 if i in (3, 4, 9, 14) else 0] for i, d in enumerate(days)}})
     low, med = s.load_cuts(s.next3(wide).deadlines)
     assert low < med
+
+
+SPLIT = pd.DataFrame({"uid": ["u00", "u01", "u02"], "split": ["train", "train", "test"]})
+
+
+def test_stress_counts_per_split_for_both_tables_with_every_cell_present():
+    now, nxt, _, _ = s.build_tables(RESP, DL)
+    got = s.stress_counts(now, nxt, SPLIT)
+    assert got["levels"] == ["Low", "Med", "High"]
+    train, test = got["stress_now"]["train"], got["stress_now"]["test"]  # [load][stress]
+    assert train["Low"] == {"Low": 1, "Med": 0, "High": 0}
+    assert train["Med"] == {"Low": 1, "Med": 1, "High": 0}
+    assert train["High"] == {"Low": 0, "Med": 1, "High": 2}
+    assert test["High"] == {"Low": 0, "Med": 1, "High": 0} and test["Low"] == {"Low": 0, "Med": 0, "High": 0}
+    nx = got["stress_next"]["train"]  # [stress_now][load_tomorrow][stress_next]
+    assert nx["Low"]["High"] == {"Low": 0, "Med": 1, "High": 1}
+    assert nx["High"]["Med"] == {"Low": 0, "Med": 1, "High": 0}
+    assert sum(sum(sum(c.values()) for c in row.values()) for row in got["stress_next"]["test"].values()) == 0
+
+
+def test_stress_counts_add_up_to_the_rows_of_the_csvs():
+    now, nxt, _, _ = s.build_tables(RESP, DL)
+    got = s.stress_counts(now, nxt, SPLIT)
+    total_now = sum(c for sp in got["stress_now"].values() for row in sp.values() for c in row.values())
+    total_next = sum(c for sp in got["stress_next"].values() for a in sp.values() for b in a.values() for c in b.values())
+    assert (total_now, total_next) == (len(now), len(nxt))
+
+
+def test_write_all_writes_the_counts_file_without_any_rows(tmp_path):
+    s.write_all(make_raw(tmp_path), tmp_path / "out")
+    text = (tmp_path / "out" / "stress_counts.json").read_text()
+    got = json.loads(text)
+    assert set(got) == {"levels", "stress_now", "stress_next"}
+    assert "u00" not in text and "uid" not in text  # aggregates only

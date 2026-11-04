@@ -6,10 +6,14 @@ and Linking). Rules: no leakage (Perf, Study and Timeliness use only data dated 
 assessment), ranks within each module presentation, withdrawals excluded, item weight as
 share of the final grade within the module, 80/20 split by student.
 
+Also writes oulad_study_cuts.json: thirds of the active-day share (train students), used for the
+Study-before-the-exam rule (design-v2, Prediction).
+
 Run: python -m bsp_priors.ingest_oulad --raw <OULAD csv dir> --out <output dir>
 """
 
 import argparse
+import json
 import random
 from pathlib import Path
 
@@ -62,6 +66,12 @@ def split_students(ids, seed: int = SEED, test_frac: float = 0.2) -> pd.DataFram
     return pd.DataFrame({"id_student": ids, "split": ["test" if i in test else "train" for i in ids]})
 
 
+def active_share(clicks: pd.DataFrame, students: pd.Index, date: float) -> pd.Series:
+    """Share of the days from the start of the presentation up to `date` on which each student had a click."""
+    window = clicks[(clicks.date >= 0) & (clicks.date < date)]
+    return window.groupby("id_student").date.nunique().reindex(students).fillna(0) / max(date, 1)
+
+
 def _features(a, grp, sa, clicks, students, prev_mean):
     """Perf, Study, Timeliness and difficulty for one assessment, from dates before a.date."""
     prior = grp[grp.date < a.date]
@@ -83,12 +93,17 @@ def _features(a, grp, sa, clicks, students, prev_mean):
             "study": label(study.reindex(perf.index), LEVELS).values,
             "timeliness": label(tl.reindex(perf.index), TIMELINESS).values,
             "exam_difficulty": DIFFICULTY[d - 1],
+            "active_share": active_share(clicks, students, a.date).reindex(perf.index).values,
         }
     )
 
 
 def build_tables(info, courses, assessments, student_assessment, student_vle):
-    """Return (study, exam_standing, {g: final_standing}, split) as DataFrames."""
+    """Return (study, exam_standing, {g: final_standing}, split, study_cuts).
+
+    study_cuts are thirds of the active-day share over train-split students (all assessments pooled),
+    the absolute values the extension compares a student's own active days against.
+    """
     info = info[info.final_result != "Withdrawn"]
     ass = assessments.merge(courses[[*PRES, "module_presentation_length"]], on=PRES)
     ass["date"] = ass.date.fillna(ass.module_presentation_length)
@@ -136,7 +151,10 @@ def build_tables(info, courses, assessments, student_assessment, student_vle):
         else pd.DataFrame(columns=fcols)
         for g, c in checks.items()
     }
-    return study, exam, finals, split_students(info.id_student)
+    split = split_students(info.id_student)
+    train = long[long.id_student.isin(split[split.split == "train"].id_student)].active_share
+    low, med = (float(x) for x in np.quantile(train, [1 / 3, 2 / 3]))
+    return study, exam, finals, split, {"low_max": low, "med_max": med}
 
 
 def cell_report(exam: pd.DataFrame, split: pd.DataFrame) -> pd.DataFrame:
@@ -157,7 +175,7 @@ def sparse_summary(rep: pd.DataFrame) -> str:
 
 def write_all(raw: Path, out: Path) -> pd.DataFrame:
     """Read the OULAD files in raw/, write the CSVs, split and README; return the cell report."""
-    study, exam, finals, split = build_tables(
+    study, exam, finals, split, study_cuts = build_tables(
         *(pd.read_csv(raw / f"{n}.csv")
           for n in ("studentInfo", "courses", "assessments", "studentAssessment", "studentVle"))
     )
@@ -167,6 +185,11 @@ def write_all(raw: Path, out: Path) -> pd.DataFrame:
         df.to_csv(out / f"oulad_final_standing_g{g}.csv", index=False)
     study.to_csv(out / "oulad_study.csv", index=False)
     split.to_csv(out / "oulad_split.csv", index=False)
+    (out / "oulad_study_cuts.json").write_text(json.dumps({
+        "active_day_share": study_cuts,
+        "definition": "share of days from the start of the presentation to the assessment with any VLE click; "
+                      "Low if <= low_max, Med if <= med_max, else High; thirds over train students, all assessments pooled",
+    }, indent=1))
     (out / "README.md").write_text(ATTRIBUTION)
     return cell_report(exam, split)
 
