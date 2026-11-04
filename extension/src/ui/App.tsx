@@ -13,7 +13,9 @@ export function App({
   initialSessions = [],
   putSession = async () => {},
   removeSession = async () => {},
+  onExport,
 }: {
+  onExport?: () => Promise<void>;
   initial?: CourseCache[];
   save: (c: CourseCache) => Promise<void>;
   initialSessions?: StudySession[];
@@ -56,6 +58,7 @@ export function App({
           }, fail)
         }
       />
+      {onExport && <button onClick={() => onExport().then(ok, fail)}>Export my data</button>}
     </>
   );
 }
