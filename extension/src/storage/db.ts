@@ -1,4 +1,5 @@
 import type { CourseCache, Submission } from "../canvas/load";
+import type { Cpts } from "../priors/cpts";
 
 /** Design doc, Data model. Field names match the table there. */
 export interface StudySession {
@@ -44,8 +45,16 @@ export interface FrozenPrediction {
   created_at: string;
 }
 
+export interface CptsCache {
+  /** Singleton record. */
+  id: "default";
+  version: string;
+  data: Cpts;
+}
+
 /** store name -> [key path, record type]. */
 export interface Schema {
+  cpts_cache: CptsCache;
   course_cache: CourseCache;
   submission_history: Submission;
   study_session: StudySession;
@@ -66,6 +75,7 @@ const KEY_PATHS: { [K in StoreName]: string } = {
   posterior: "course_id",
   availability: "id",
   frozen_prediction: "item_id",
+  cpts_cache: "id",
 };
 
 /**
@@ -85,6 +95,10 @@ export const MIGRATIONS: ((db: IDBDatabase, tx: IDBTransaction) => void)[] = [
       c.update({ late: false, missing: false, seconds_late: 0, ...c.value });
       c.continue();
     };
+  },
+  // Migration 0 creates every KEY_PATHS store, so a fresh install already has cpts_cache; only upgrades need it.
+  (db) => {
+    if (!db.objectStoreNames.contains("cpts_cache")) db.createObjectStore("cpts_cache", { keyPath: "id" });
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
@@ -131,4 +145,5 @@ export const stores = (db: IDBDatabase) => ({
   posterior: store(db, "posterior"),
   availability: store(db, "availability"),
   frozen_prediction: store(db, "frozen_prediction"),
+  cpts_cache: store(db, "cpts_cache"),
 });
