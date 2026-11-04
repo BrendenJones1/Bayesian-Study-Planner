@@ -151,3 +151,8 @@ def test_licence_readme_is_written_next_to_the_csvs():
     for s in ("10.1038/sdata.2017.171", "10.24432/C5KK69", "CC BY 4.0",
               "creativecommons.org/licenses/by/4.0", "modified: aggregated and discretised".capitalize()):
         assert s in text
+
+
+def test_summary_line_counts_sparse_cells_from_the_sparse_column():
+    rep = pd.DataFrame({"n_students": [5, 40, 12], "sparse": [True, False, True]})
+    assert o.sparse_summary(rep) == "2 of 3 Exam-standing cells under 30 students"
