@@ -15,6 +15,7 @@ from collections import Counter, defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+from bsp_priors.hand_built import hand_built
 from bsp_priors.ingest_oulad import DIFFICULTY, LEVELS, TIMELINESS, WEIGHT_CUT
 from bsp_priors.ingest_ubcgrades import BINS, _p_in_decile, difficulty, read_csv
 
@@ -140,6 +141,7 @@ def build(split: str = "train", alpha: float = ALPHA, tables: Path = TABLES, bui
             "item_weight_share_of_final_grade": WEIGHT_CUT,
         },
         "tables": cpts,
+        "hand_built": hand_built(cuts, STUDY_VOLUME_HOURS),
     }
 
 
