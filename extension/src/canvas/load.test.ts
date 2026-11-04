@@ -56,7 +56,7 @@ describe("canvas loader", () => {
     ]);
     expect(subs[0]).toEqual({
       item_id: "assignment:100", submitted_at: "2026-09-08T12:00:00Z",
-      due_at: "2026-09-10T12:00:00Z", score: 0.84, bonus: false, lead_days: 2,
+      due_at: "2026-09-10T12:00:00Z", score: 0.84, bonus: false, lead_days: 2, late: false, missing: false, seconds_late: 0,
     });
   });
 
@@ -134,7 +134,7 @@ describe("score validation", () => {
       const { subs } = await run();
       expect(subs.find((s) => s.item_id === "assignment:101")).toEqual({
         item_id: "assignment:101", submitted_at: null, due_at: "2026-10-10T12:00:00Z",
-        score: 0.8, bonus: false, lead_days: null,
+        score: 0.8, bonus: false, lead_days: null, late: false, missing: false, seconds_late: 0,
       });
     } finally {
       a[1].submission = orig;
@@ -143,5 +143,44 @@ describe("score validation", () => {
   it("exact 0 and exact 1 are passed through unchanged", () => {
     expect(normalizeScore(g({ score: 0 }), 10)).toEqual({ score: 0, bonus: false });
     expect(normalizeScore(g({ score: 10 }), 10)).toEqual({ score: 1, bonus: false });
+  });
+});
+
+describe("late, missing and excused status", () => {
+  const key = "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100";
+  // Recorded-shape responses: HW1 late (graded), Midterm missing, HW2 excused.
+  const withSubs = async (subs: object[]) => {
+    const a = fixtures[key] as { submission: object }[];
+    const orig = a.map((x) => x.submission);
+    try {
+      subs.forEach((s, i) => (a[i].submission = s));
+      return (await run()).subs;
+    } finally {
+      orig.forEach((s, i) => (a[i].submission = s));
+    }
+  };
+  const recs = () =>
+    withSubs([
+      { submitted_at: "2026-09-10T13:00:00Z", score: 42, workflow_state: "graded", late: true, seconds_late: 3600 },
+      { submitted_at: null, score: null, workflow_state: "unsubmitted", missing: true },
+      { submitted_at: "2026-09-20T18:00:00Z", score: null, excused: true, late: true, workflow_state: "graded" },
+    ]);
+
+  it("submission records keep Canvas late, missing and seconds_late next to submitted_at", async () => {
+    const [late, missing] = await recs();
+    expect(late).toMatchObject({ submitted_at: "2026-09-10T13:00:00Z", late: true, missing: false, seconds_late: 3600 });
+    expect(missing).toMatchObject({ submitted_at: null, late: false, missing: true, seconds_late: 0 });
+  });
+  it("a late or missing item is recorded for Timeliness without producing a score; excused items are still dropped", async () => {
+    const subs = await withSubs([
+      { submitted_at: "2026-09-10T13:00:00Z", score: null, workflow_state: "submitted", late: true, seconds_late: 3600 },
+      { submitted_at: null, score: 0, workflow_state: "unsubmitted", missing: true },
+      { submitted_at: null, score: null, excused: true, missing: true, workflow_state: "graded" },
+    ]);
+    expect(subs.map((s) => [s.item_id, s.score])).toEqual([["assignment:100", null], ["assignment:101", null]]);
+  });
+  it("scores, bonus flags and lead_days of graded items are unchanged", async () => {
+    const [late] = await recs();
+    expect(late).toMatchObject({ score: 0.84, bonus: false, lead_days: -1 / 24 });
   });
 });

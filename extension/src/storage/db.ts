@@ -76,6 +76,16 @@ export const MIGRATIONS: ((db: IDBDatabase, tx: IDBTransaction) => void)[] = [
   (db) => {
     for (const [name, keyPath] of Object.entries(KEY_PATHS)) db.createObjectStore(name, { keyPath });
   },
+  // Submissions gain Canvas late/missing/seconds_late; shortcut: old rows get false/false/0 until the next Canvas load rewrites them.
+  (_db, tx) => {
+    const req = tx.objectStore("submission_history").openCursor();
+    req.onsuccess = () => {
+      const c = req.result;
+      if (!c) return;
+      c.update({ late: false, missing: false, seconds_late: 0, ...c.value });
+      c.continue();
+    };
+  },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
 

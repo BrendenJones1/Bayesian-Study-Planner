@@ -16,7 +16,7 @@ describe("storage layer", () => {
       canvas_course_id: 1, course_code: "COSC 111", term: null, instructor: null, modules: [], items: [],
     });
     await s.submission_history.put({
-      item_id: "a", submitted_at: null, due_at: null, score: 0, bonus: false, lead_days: null,
+      item_id: "a", submitted_at: null, due_at: null, score: 0, bonus: false, lead_days: null, late: false, missing: false, seconds_late: 0,
     });
     await s.study_session.put({
       session_id: "s1", course_id: 1, module_id: 2, started_at: "t0", ended_at: "t1", active_minutes: 25,
@@ -57,5 +57,19 @@ describe("storage layer", () => {
     expect((await stores(v2).quiz_answer.get("q"))?.correct).toBe(false);
     expect(v2.transaction("quiz_answer").objectStore("quiz_answer").indexNames.contains("by_time")).toBe(true);
     v2.close();
+  });
+
+  it("the late/missing migration is appended and keeps existing submissions", async () => {
+    const name = fresh();
+    const old = await openDb(name, MIGRATIONS.slice(0, 1));
+    old.transaction("submission_history", "readwrite").objectStore("submission_history")
+      .put({ item_id: "a", submitted_at: null, due_at: null, score: 0.5, bonus: false, lead_days: null });
+    await new Promise((r) => (old.transaction("submission_history").oncomplete = r));
+    old.close();
+    const db = await openDb(name);
+    expect(await stores(db).submission_history.get("a")).toMatchObject({
+      score: 0.5, late: false, missing: false, seconds_late: 0,
+    });
+    db.close();
   });
 });
