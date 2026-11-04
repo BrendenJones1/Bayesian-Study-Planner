@@ -67,7 +67,7 @@ jobs:
                - Among the rest, choose the earliest milestone due date,
                  then priority:p1 before priority:p2, then the lowest issue number.
                - If nothing qualifies, stop without changes.
-            2. Read CLAUDE.md, docs/design.md, docs/tradeoffs.md, the issue and its parent story.
+            2. Read CLAUDE.md, docs/design-v2.md, the issue and its parent story.
                If the criteria are ambiguous, comment with specific questions,
                add needs-human, and stop.
             3. Branch claude/issue-<n>. Implement the smallest change that meets every
@@ -81,5 +81,5 @@ jobs:
             5. Comment on the issue with a two-line summary and the PR link.
 
             Never push to main, never merge, never edit .github/workflows/,
-            never add network calls other than Canvas and priors.json,
+            never add network calls other than Canvas, cpts.json and (from extension/src/calendar/ only) the student's own Google Calendar,
             never add code that uploads student data.

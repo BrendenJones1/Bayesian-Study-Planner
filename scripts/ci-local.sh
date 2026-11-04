@@ -48,8 +48,11 @@ if [ -n "$(ls -A extension/src 2>/dev/null)" ]; then
     echo "Canvas client must be GET-only (CLAUDE.md rule 2)" >&2; exit 1
   fi
   step="guardrail: host allowlist"
-  hosts=$(grep -rhoE "https?://[a-zA-Z0-9.-]+" extension/src 2>/dev/null | sort -u || true)
+  hosts=$(grep -rhoE "https?://[a-zA-Z0-9.-]+" extension/src --exclude-dir=calendar 2>/dev/null | sort -u || true)
   bad=$(echo "$hosts" | grep -vE "canvas\.ubc\.ca|github\.io|www\.w3\.org|localhost|127\.0\.0\.1|^$" || true)
+  cal_hosts=$(grep -rhoE "https?://[a-zA-Z0-9.-]+" extension/src/calendar 2>/dev/null | sort -u || true)
+  cal_bad=$(echo "$cal_hosts" | grep -vE "www\.googleapis\.com|accounts\.google\.com|www\.w3\.org|localhost|127\.0\.0\.1|^$" || true)
+  bad=$(printf '%s\n%s\n' "$bad" "$cal_bad" | grep -v '^$' || true)
   if [ -n "$bad" ]; then
     echo "Unexpected hosts in extension/src (CLAUDE.md rule 1):" >&2; echo "$bad" >&2; exit 1
   fi

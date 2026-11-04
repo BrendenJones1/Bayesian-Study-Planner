@@ -117,7 +117,7 @@ jobs:
           prompt: |
             Implement GitHub issue #${{ github.event.issue.number }} in ${{ github.repository }}.
 
-            1. Read CLAUDE.md, docs/design.md and docs/tradeoffs.md, then the issue and its
+            1. Read CLAUDE.md and docs/design-v2.md, then the issue and its
                parent story (`gh issue view ${{ github.event.issue.number }} --comments`).
             2. If the issue is labeled needs-human or blocked, or the acceptance criteria
                are ambiguous, comment on the issue with specific questions, add the
