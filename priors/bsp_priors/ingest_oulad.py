@@ -23,7 +23,8 @@ DIFFICULTY = ["Easy", "Med", "Hard"]
 WEIGHT_CUT = 0.15  # assumed (design-v2 Assumptions): share of the final grade
 DIFFICULTY_CUT = 5.0  # assumed: points from the mean of earlier class means
 SPARSE = 30
-CHECKPOINTS = (25, 50, 75)
+CHECKPOINTS = (25, 50)  # share of the final grade graded before the assessment; no OULAD module has 75%
+# graded before its final exam (about half the grade), so a 75% table would have no rows (design-v2, Network)
 SEED = 0
 
 ATTRIBUTION = """# OULAD-derived CSVs

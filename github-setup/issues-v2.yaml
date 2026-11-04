@@ -203,7 +203,7 @@ stories:
         ref: "G1"
         depends_on: ["Check dataset licences and record attribution"]
         criteria:
-          - "Writes oulad_exam_standing.csv, oulad_final_standing_g25.csv, oulad_final_standing_g50.csv, oulad_final_standing_g75.csv and oulad_study.csv in the layout of design-v2 Learning the CPTs"
+          - "Writes oulad_exam_standing.csv, oulad_final_standing_g25.csv, oulad_final_standing_g50.csv and oulad_study.csv (checkpoints are 25% and 50% only) in the layout of design-v2 Learning the CPTs"
           - "No leakage: Perf, Study and Timeliness for an assessment use only assessments and clicks dated before it; a test poisons later data and the row does not change"
           - "Thirds and deciles are computed within each module presentation, never pooled; a test with two presentations of different difficulty checks it"
           - "Withdrawn students are excluded"
@@ -230,9 +230,9 @@ stories:
         design_section: "Stress"
         criteria:
           - "The stress answer labels are checked against EMA_definition.json before recoding; the check is recorded in the module docstring and covered by a test"
-          - "Writes studentlife_stress_now.csv (one row per stress response with that day's deadline count) and studentlife_stress_next.csv (one row per consecutive pair of a student's responses)"
-          - "Stress is recoded to Low, Med and High, and the daily deadline count to thirds within the StudentLife sample"
-          - "The Load cut points (thirds of deadlines per day) are written out for the extension's Load node"
+          - "Writes studentlife_stress_now.csv (one row per stress response with the count of deadlines in the next 3 days from that day) and studentlife_stress_next.csv (one row per consecutive pair of a student's responses)"
+          - "Stress is recoded to Low, Med and High, and the next-3-days deadline count to thirds within the StudentLife sample"
+          - "The Load cut points (thirds of the next-3-days deadline count per student-day) are written out for the extension's Load node"
           - "A test on a three-student fixture including a skipped survey day checks the pairs"
       - title: "Learn Laplace-smoothed CPTs and write cpts.json"
         labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
@@ -318,7 +318,7 @@ stories:
         depends_on: ["Load assignment-group names and split group weights across their items", "TypeScript exact inference with parity tests against pgmpy"]
         design_section: "Prediction"
         criteria:
-          - "Item weight (15% or less, over 15% of the course grade) and Graded so far (25, 50 or 75%) come from the loader's item shares; the 15% cut is a named constant"
+          - "Item weight (15% or less, over 15% of the course grade) and Graded so far (25 or 50%, the highest checkpoint not above the graded share, so more than half graded uses the 50% table) come from the loader's item shares; the 15% cut is a named constant"
           - "With c the current weighted score, G the graded weight and R = 1 - G: if c*G + 1.00*R < t then P(grade >= t) = 0, and if c*G >= t then P = 1, before any inference"
           - "A bound hit returns its reason ('out of reach' or 'already locked in') with the numbers used"
           - "Between the bounds the network's answer is returned unchanged"
