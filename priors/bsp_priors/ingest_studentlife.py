@@ -17,7 +17,8 @@ Pairs: responses are reduced to the last one per student per local (America/New_
 A pair is two consecutive such days of one student, so a skipped survey day yields one pair
 across the gap; "Load tomorrow" is the load on the later response's day.
 
-Row-level CSVs are git-ignored (docs/data-licences.md); only aggregates reach cpts.json.
+Row-level CSVs are git-ignored (docs/data-licences.md). stress_counts.json holds only aggregate counts per
+split (no student ids) and is committed, so cpts.json can be rebuilt without the raw data.
 
 Run: python -m bsp_priors.ingest_studentlife --raw <StudentLife dataset dir> --out <output dir>
 """
@@ -74,6 +75,29 @@ def to_load(n: pd.Series, cuts: tuple[float, float]) -> pd.Series:
     return pd.cut(n, [-1, cuts[0], cuts[1], float("inf")], labels=LEVELS).astype(str)
 
 
+def stress_counts(now: pd.DataFrame, nxt: pd.DataFrame, split: pd.DataFrame) -> dict:
+    """Aggregate counts per split (train, test) with every cell present: no student ids, safe to commit.
+
+    stress_now[split][load][stress]; stress_next[split][stress_now][load_tomorrow][stress_next].
+    """
+    part = split.set_index("uid").split
+    out: dict = {"levels": LEVELS, "stress_now": {}, "stress_next": {}}
+    for sp in ("train", "test"):
+        n, x = now[now.uid.map(part) == sp], nxt[nxt.uid.map(part) == sp]
+        out["stress_now"][sp] = {
+            load: {st: int(((n.load == load) & (n.stress == st)).sum()) for st in LEVELS} for load in LEVELS
+        }
+        out["stress_next"][sp] = {
+            a: {
+                load: {b: int(((x.stress_now == a) & (x.load_tomorrow == load) & (x.stress_next == b)).sum())
+                      for b in LEVELS}
+                for load in LEVELS
+            }
+            for a in LEVELS
+        }
+    return out
+
+
 def build_tables(responses: pd.DataFrame, deadlines: pd.DataFrame):
     """responses: uid, level (1..5), resp_time (epoch s). deadlines: wide, uid then one column per date.
     Return (stress_now, stress_next, cuts, split)."""
@@ -107,6 +131,7 @@ def write_all(raw: Path, out: Path) -> tuple[float, float]:
     now.to_csv(out / "studentlife_stress_now.csv", index=False)
     nxt.to_csv(out / "studentlife_stress_next.csv", index=False)
     split.to_csv(out / "studentlife_split.csv", index=False)
+    (out / "stress_counts.json").write_text(json.dumps(stress_counts(now, nxt, split), indent=1))
     (out / "load_cuts.json").write_text(json.dumps({"low_max": cuts[0], "med_max": cuts[1]}))
     return cuts
 

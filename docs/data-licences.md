@@ -93,7 +93,7 @@ A second statement Brenden supplied, from the PAIR site (URL not given), allows 
 
 1. **OULAD-derived CSVs** may be committed, with the attribution above.
 2. **UBC PAIR:** derived files may be committed and published with attribution, by owner decision. Raw source files are not committed. The grade map lives in one swappable table.
-3. **StudentLife source data and row-level CSVs** are never committed. The builder (#96) downloads the source into a git-ignored folder. Aggregate tables in `cpts.json` may be published with the authors' citation.
+3. **StudentLife source data and row-level CSVs** are never committed. The builder (#96) downloads the source into a git-ignored folder. Aggregate tables in `cpts.json`, and the aggregate counts file `stress_counts.json` they are built from (no student ids), may be committed and published with the authors' citation.
 4. If a source objects to publication of derived data, the affected table is removed and replaced, or the extension computes it locally from a build script.
 
 ## Attribution to carry into the README (#59) and the report (#58)
