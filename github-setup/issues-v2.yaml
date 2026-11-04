@@ -1,0 +1,631 @@
+# Bayesian Study Planner — GitHub issue plan for the v2 design (docs/design-v2.md)
+#
+# Same format as issues.yaml, plus:
+#   previous_titles  on a story, task, stretch item or milestone: the existing issue or milestone is
+#                    rewritten or renamed in place instead of duplicated.
+#   depends_on       on a task: titles (or previous titles) of tasks in this plan, or titles of existing
+#                    issues. The issue body starts with "Depends on #N, #M".
+#   design_section   on a task: the v2 section it implements (overrides its story's).
+#   remove_labels    on any issue: labels to take off when the issue is updated.
+#   ref              on a task: the audit gap id (docs/salvage-audit.md section 4). Not sent to GitHub.
+#
+# Existing issues that are KEEP in docs/backlog-v2.md are not listed here, so --update leaves them alone.
+# Parked Future items (#62-#69) are left out for the same reason.
+#
+# Run:  python create_issues.py --repo OWNER/REPO --plan issues-v2.yaml --update --dry-run
+
+design_doc_url: "https://github.com/BrendenJones1/Bayesian-Study-Planner/blob/main/docs/design-v2.md"
+
+labels:
+  - {name: "type:story",     color: "5319e7", description: "User story (parent issue)"}
+  - {name: "type:task",      color: "1d76db", description: "Implementation task (sub-issue)"}
+  - {name: "type:spike",     color: "fbca04", description: "Time-boxed investigation"}
+  - {name: "type:stretch",   color: "c5def5", description: "Future / push goal (v2+)"}
+  - {name: "area:extension", color: "0e8a16", description: "Chrome extension, Canvas client, UI"}
+  - {name: "area:model",     color: "b60205", description: "Bayesian model, predictions"}
+  - {name: "area:planner",   color: "d93f0b", description: "Joint allocator, scheduling"}
+  - {name: "area:quiz",      color: "e99695", description: "On-device quiz generation"}
+  - {name: "area:priors",    color: "006b75", description: "Nightly Python priors job"}
+  - {name: "area:eval",      color: "0052cc", description: "Evaluation and model selection"}
+  - {name: "area:infra",     color: "bfdadc", description: "Repo, CI, automation"}
+  - {name: "area:docs",      color: "d4c5f9", description: "Report, README, presentation"}
+  - {name: "priority:p1",    color: "b60205", description: "Must ship for the course"}
+  - {name: "priority:p2",    color: "fbca04", description: "Should ship if time allows"}
+  - {name: "claude-ready",   color: "7057ff", description: "Specified well enough; the nightly agent may pick it"}
+  - {name: "claude-now",     color: "8a63d2", description: "Run the coding agent on this issue now"}
+  - {name: "needs-human",    color: "000000", description: "Requires Brenden's judgment, data or decision"}
+  - {name: "blocked",        color: "ededed", description: "Waiting on something else"}
+  - {name: "review:pass",    color: "0e8a16", description: "Reviewer agent: all criteria met"}
+  - {name: "review:changes", color: "d93f0b", description: "Reviewer agent: changes requested"}
+
+# due_on = Friday 11:59 PM Pacific of each course week (PST, UTC-8)
+milestones:
+  - {key: w9,  title: "Week 9 – Foundations and Canvas loader", previous_titles: ["Week 9 – Logging MVP"], due_on: "2026-11-07T07:59:00Z", description: "Rules, decision log, dataset licences, and the Canvas loader additions v2 needs. Me + friends keep logging."}
+  - {key: w10, title: "Week 10 – CSV builders and CPTs", previous_titles: ["Week 10 – Model v1 (midterm break)"], due_on: "2026-11-14T07:59:00Z", description: "OULAD, UBC PAIR and StudentLife CSV builders, Laplace-smoothed CPTs, cpts.json, hand-built CPTs."}
+  - {key: w11, title: "Week 11 – Network and inference", previous_titles: ["Week 11 – Quizzes and planner"], due_on: "2026-11-21T07:59:00Z", description: "pgmpy notebook, TypeScript exact inference with parity tests, Perf and mastery, weights and bounds."}
+  - {key: w12, title: "Week 12 – Offset, planner and calendar", previous_titles: ["Week 12 – Evaluation"], due_on: "2026-11-28T07:59:00Z", description: "Personal offset, stress and utility, exhaustive plan search, Google Calendar, nightly job."}
+  - {key: w13, title: "Week 13 – Evaluation and video", previous_titles: ["Week 13 – Presentation video"], due_on: "2026-12-05T07:59:00Z", description: "Held-out evaluation, three-model ladder, personas, sensitivity sweeps, presentation video."}
+  - {key: w14, title: "Week 14 – Final deliverables", due_on: "2026-12-12T07:59:00Z", description: "Report, README, packaged extension."}
+  - {key: future, title: "Future (v2+)", due_on: null, description: "Push goals. Never blocks the course deliverable."}
+
+stories:
+
+  # ================================================================ Week 9: rules and process
+  - key: V0
+    title: "Story: The repo, rules and data are ready for v2"
+    milestone: w9
+    labels: ["type:story", "area:infra", "priority:p1"]
+    story: "As the developer, I want the rules, decision log, dataset licences and workflows settled so that agents build v2 and nothing from v1 by accident."
+    design_section: "Overview"
+    tasks:
+      - title: "Rewrite CLAUDE.md for v2"
+        labels: ["type:task", "area:infra", "priority:p1", "needs-human"]
+        context: "Drafted in the v2-migration pull request. This issue tracks your review and the merge."
+        criteria:
+          - "The intro, layout and every design pointer refer to docs/design-v2.md"
+          - "Rule 1 allows only the student's own Google Calendar (free/busy and the planner's own blocks), from extension/src/calendar/, after Connect"
+          - "Rule 2 stays absolute: study blocks go to Google Calendar or an .ics file, never to Canvas"
+          - "Quizzes, ZOIB, the soft day count and the OULAD-scale rule are under Parked v1 rules"
+          - "Rule 4 requires pgmpy parity on shared/fixtures; rule 5 lists invariants a to h"
+          - "How to work an issue stops when a 'Depends on' issue is still open"
+      - title: "Write the v2 decision log (docs/tradeoffs-v2.md)"
+        labels: ["type:task", "area:docs", "priority:p2", "claude-ready"]
+        ref: "G23"
+        criteria:
+          - "docs/tradeoffs-v2.md has a table with the columns #, Decision, Options weighed, Chosen, Why, Cost accepted"
+          - "It has one row for each of: counting instead of a continuous model; Laplace smoothing; a discrete network; pgmpy plus TypeScript enumeration; OULAD and UBC joined only by class standing; stress affects the action only; the personal offset with a back-test-chosen m; exhaustive search instead of greedy; the Google Calendar exception; Canvas stays read-only"
+          - "Every row cites the docs/design-v2.md section it comes from, and each cited heading exists in that file"
+          - "A test in shared/tests/ fails if a row is missing or cites a heading that does not exist"
+      - title: "Check dataset licences and record attribution"
+        labels: ["type:task", "area:docs", "priority:p2", "needs-human"]
+        ref: "G24"
+        criteria:
+          - "docs/data-licences.md states the licence and the required attribution for OULAD (CC BY 4.0), the UBC PAIR data and StudentLife"
+          - "It says whether the derived CSVs may be committed to a public repository, quoting each licence's wording"
+          - "Where redistribution is not allowed, it names the alternative: a build script that downloads the data"
+          - "The result is recorded in this issue before any CSV is committed"
+      - title: "Apply the v2 workflow and CI guardrail changes"
+        labels: ["type:task", "area:infra", "priority:p1", "needs-human"]
+        context: "Workflows are protected by CLAUDE.md rule 7, so you apply these edits by hand; the agent must not."
+        criteria:
+          - "claude-review.yml checks CLAUDE.md rules 1, 2 and 4 and invariants 5a to 5h instead of the v1 invariants (lines 64-67)"
+          - "claude.yml, claude-nightly.yml and claude-review.yml read docs/design-v2.md instead of docs/design.md and docs/tradeoffs.md"
+          - "ci.yml and scripts/ci-local.sh allow googleapis.com only under extension/src/calendar/; the Canvas GET-only check is unchanged"
+          - "ci.yml installs pyyaml so the plan tests in github-setup/ are not skipped"
+      - title: "Replace the priors nightly workflow with publish-on-change"
+        labels: ["type:task", "area:infra", "priority:p1", "needs-human"]
+        milestone: w10
+        ref: "G22"
+        context: "A workflow edit, so you apply it by hand. Today's nightly run fails with 'No module named priors.publish' because the package is bsp_priors."
+        depends_on: ["Publish cpts.json and fetch it in the extension"]
+        criteria:
+          - "priors-nightly.yml runs python -m bsp_priors.publish --out site/cpts.json"
+          - "It triggers on pushes to main that change priors/ or the committed CSVs, and on workflow_dispatch; the cron is removed"
+          - "The Pages deploy job is unchanged and cpts.json is served at the Pages URL"
+          - "A run on main succeeds and the extension fetches the published file"
+
+  # ================================================================ Canvas loader
+  - key: E1
+    title: "Story: My Canvas data loads automatically"
+    milestone: w9
+    labels: ["type:story", "area:extension", "priority:p1"]
+    story: "As a student, I want my courses, modules, deadlines, scores, submission times and class statistics to load from Canvas automatically so that I never type them in."
+    design_section: "Data sources"
+    tasks:
+      - title: "Keep late, missing and excused status on every Canvas submission"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G13"
+        design_section: "Network"
+        criteria:
+          - "Submission records keep Canvas late, missing and seconds_late next to submitted_at"
+          - "A late or missing item is recorded for Timeliness without producing a score; excused items are still dropped"
+          - "Scores, bonus flags and lead_days of graded items are unchanged"
+          - "A schema change is a new appended migration in storage/db.ts and existing data is kept"
+          - "Tests run on recorded fixture responses with one late, one missing and one excused submission"
+      - title: "Load assignment-group names and split group weights across their items"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G11"
+        design_section: "Network"
+        context: "Plan decision, change it here if you disagree: an item is a major project when its group name matches project, paper or essay and its share is over 15%."
+        criteria:
+          - "Each item stores its assignment-group id and name"
+          - "Item weight is the group's group_weight divided by the number of items in that group, as a share of the course grade"
+          - "When a course has no weighted groups (group_weight 0 or null) the weight falls back to the item's share of total points, and the item is marked as a fallback"
+          - "Item type comes from the group name (exam, midterm, quiz, assignment, lab), with the existing name pattern as the fallback"
+          - "Only exam-type items and major projects are marked as study-block candidates"
+          - "Tests cover weighted groups, unweighted groups and a lab group"
+      - title: "Load calendar events, syllabus text and announcements"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G10"
+        criteria:
+          - "Calendar events for each course are stored with title, start and end"
+          - "The syllabus body is requested with include[]=syllabus_body and stored as plain text"
+          - "Announcements are read for each course and stored with title, posted_at and plain-text message"
+          - "All three use the existing GET-only client and the GET-only tests still pass"
+          - "A course where any of the three is unavailable still loads, and the gap is recorded as null, not empty"
+          - "Tests run on recorded fixture responses, with no live Canvas"
+      - title: "Load concluded courses for the personal replay"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        milestone: w12
+        depends_on: ["Spike: concluded courses and the score-statistics threshold at UBCO"]
+        design_section: "Evaluation"
+        criteria:
+          - "Courses with enrollment_state=completed are loaded into the same stores and marked as past terms"
+          - "Past-term items never feed the current term's Item weight, Days left or offset counts"
+          - "When Canvas returns no concluded courses the loader skips them without an error"
+          - "Tests cover both cases on fixtures"
+
+  # ================================================================ Exam coverage
+  - key: E6
+    title: "Story: Exam coverage is detected for me"
+    milestone: w11
+    labels: ["type:story", "area:extension", "priority:p2"]
+    story: "As a student, I want the extension to work out when each exam is and which modules it covers so that predictions and plans are right without manual setup."
+    design_section: "Data sources"
+    tasks:
+      - title: "Coverage rule: an exam covers the modules released since the previous exam"
+        previous_titles: ["Map items to modules from Canvas module items"]
+        labels: ["type:task", "area:extension", "priority:p1", "claude-ready"]
+        ref: "G10"
+        context: "Plan decision, change it here if you disagree: a module counts as released on its unlock_at date when Canvas gives one, otherwise by module order."
+        depends_on: ["Load calendar events, syllabus text and announcements", "Load assignment-group names and split group weights across their items"]
+        criteria:
+          - "By default an exam covers the modules released since the previous exam of the same course, or every module for the first exam"
+          - "Items already linked to a module through Canvas module items keep that link"
+          - "A coverage set can be overridden; an override is stored with confirmed unset until the student confirms it"
+          - "Coverage is a pure function from a course and an exam to module ids"
+          - "Tests: first exam, second exam, a course with no modules, an override"
+      - title: "Propose exam dates and coverage from syllabus and announcement text"
+        previous_titles: ["On-device extraction of coverage from announcements and the syllabus"]
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G10"
+        depends_on: ["Load calendar events, syllabus text and announcements"]
+        criteria:
+          - "Text near 'midterm', 'exam', 'final' or 'quiz' that contains a date yields a proposed date for the matching item"
+          - "A phrase such as 'Modules 4-7', 'Modules 4 to 7' or 'Modules 4–7' yields a proposed coverage set"
+          - "Dates from Canvas assignments and calendar events take precedence over text matches"
+          - "Proposals are never applied automatically; each is returned as provisional with its source sentence"
+          - "Parsing is pure code with no network and no model (Gemini Nano extraction is out of scope)"
+          - "Tests use at least three syllabus snippets, two announcements and one text with no match"
+
+  # ================================================================ Week 10: CSVs and CPTs
+  - key: E3
+    title: "Story: Predictions make sense from day one"
+    milestone: w10
+    labels: ["type:story", "area:priors", "priority:p1"]
+    story: "As a student, I want predictions grounded in public data on how students finished and how UBCO courses grade so that they are sensible before I have any grades."
+    design_section: "Learning the CPTs"
+    research: "Kolen & Brennan (equipercentile linking); Wang et al. 2014 (StudentLife); Open University Learning Analytics Dataset (OULAD)"
+    tasks:
+      - title: "Build the OULAD CSVs with the leakage rules"
+        previous_titles: ["Ingest OULAD and derive study dose, study days and lead time per assessment"]
+        labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
+        ref: "G1"
+        depends_on: ["Check dataset licences and record attribution"]
+        criteria:
+          - "Writes oulad_exam_standing.csv, oulad_final_standing_g25.csv, oulad_final_standing_g50.csv, oulad_final_standing_g75.csv and oulad_study.csv in the layout of design-v2 Learning the CPTs"
+          - "No leakage: Perf, Study and Timeliness for an assessment use only assessments and clicks dated before it; a test poisons later data and the row does not change"
+          - "Thirds and deciles are computed within each module presentation, never pooled; a test with two presentations of different difficulty checks it"
+          - "Withdrawn students are excluded"
+          - "Item weight is converted to share of the final grade within each module before it is bucketed at the 15% cut"
+          - "Students are split 80/20 by student with a fixed seed and the split is saved to disk"
+          - "The builder reports the number of students per Exam-standing parent cell and flags cells under 30"
+      - title: "Build the UBC grade map from PAIR CSVs"
+        previous_titles: ["Ingest UBC Grades (UBCO) into a cached course and instructor table"]
+        labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
+        ref: "G2"
+        depends_on: ["Check dataset licences and record attribution"]
+        design_section: "Prediction"
+        criteria:
+          - "Reads the UBCO PAIR section CSVs (2021 to 2025) and writes ubc_grade_bins.csv with one row per course, year and bin"
+          - "Each year's distribution for a course is sliced into deciles separately and the years are averaged; a test checks one course against a hand-computed P(grade >= 80 | decile 7)"
+          - "A course with under 2 years of data uses the pooled distribution of its difficulty group (average under 75.3 Hard, 75.3 to 81.0 Medium, 81.0 and over Easy); a test covers a one-year course"
+          - "Sections with fewer than 10 students are excluded"
+          - "A course-code parser maps Canvas course codes to PAIR subject and course, with tests for UBCO quirks such as section suffixes"
+          - "Reruns on the same input produce an identical file"
+      - title: "Build the StudentLife stress CSVs"
+        labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
+        ref: "G3"
+        depends_on: ["Check dataset licences and record attribution"]
+        design_section: "Stress"
+        criteria:
+          - "The stress answer labels are checked against EMA_definition.json before recoding; the check is recorded in the module docstring and covered by a test"
+          - "Writes studentlife_stress_now.csv (one row per stress response with that day's deadline count) and studentlife_stress_next.csv (one row per consecutive pair of a student's responses)"
+          - "Stress is recoded to Low, Med and High, and the daily deadline count to thirds within the StudentLife sample"
+          - "The Load cut points (thirds of deadlines per day) are written out for the extension's Load node"
+          - "A test on a three-student fixture including a skipped survey day checks the pairs"
+      - title: "Learn Laplace-smoothed CPTs and write cpts.json"
+        labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
+        ref: "G4"
+        depends_on: ["Build the OULAD CSVs with the leakage rules", "Build the UBC grade map from PAIR CSVs", "Build the StudentLife stress CSVs"]
+        criteria:
+          - "Every learned table equals (N(x,u) + alpha) / (N(u) + alpha * |X|) with alpha = 1; the design's worked example (78 of 412 rows in decile 8 gives 79/422 = 0.187) is a test"
+          - "Every row of every table sums to 1 within 1e-9 and has no zero entry"
+          - "alpha is a parameter; a test shows alpha = 0 leaves a zero on an empty cell and alpha = 1 and 5 do not"
+          - "cpts.json lists every table with its parents, state names and values, plus model_version and built_at"
+          - "cpts.json carries the cut points the extension needs (Timeliness, Study, Load, the 15% Item weight cut)"
+          - "Two or three entries per table are calculated by hand in the tests and match"
+          - "The UBC grade map is copied exactly, without smoothing"
+      - title: "Publish cpts.json and fetch it in the extension"
+        previous_titles: ["Publish priors.json to GitHub Pages nightly"]
+        labels: ["type:task", "area:priors", "area:infra", "priority:p1", "claude-ready"]
+        depends_on: ["Learn Laplace-smoothed CPTs and write cpts.json"]
+        context: "The workflow edit is a separate issue for you to apply by hand; do not edit .github/workflows/."
+        criteria:
+          - "python -m bsp_priors.publish --out site/cpts.json writes the file"
+          - "cpts.json includes model_version and built_at"
+          - "The extension fetches cpts.json with a GET from the Pages URL and caches it in a cpts_cache store (added by an appended migration) with its version"
+          - "A missing, corrupt or too-old file (below the extension's minimum model_version) shows a message and the last cached tables keep working; tests cover all three"
+          - "No other host is called and the host guardrail still passes"
+      - title: "Write the hand-built CPTs with explanations"
+        labels: ["type:task", "area:priors", "priority:p1", "claude-ready"]
+        ref: "G5"
+        depends_on: ["Learn Laplace-smoothed CPTs and write cpts.json"]
+        design_section: "Network"
+        criteria:
+          - "Exam difficulty is the mean of the three concept difficulty levels, rounded; Perf is the mean of the three mastery levels, rounded; both are deterministic tables in cpts.json"
+          - "Study before the exam has all 27 rows (Study so far, Action, Days left) from the design's sum rule: volume level plus active-day level, 0 to 1 Low, 2 Med, 3 to 4 High"
+          - "Each table has a written explanation a reader can check by hand"
+          - "A test recomputes five hand-picked rows independently of the table code"
+
+  # ================================================================ Week 11: network and inference
+  - key: VN
+    title: "Story: My chance of a grade comes from a network checked against pgmpy"
+    milestone: w11
+    labels: ["type:story", "area:model", "priority:p1"]
+    story: "As a student, I want my chance of a grade computed by a network that is checked against a reference implementation so that I can trust the number."
+    design_section: "Network"
+    tasks:
+      - title: "pgmpy notebook: build the network from cpts.json and answer every query"
+        labels: ["type:task", "area:eval", "area:model", "priority:p1", "claude-ready"]
+        ref: "G6"
+        depends_on: ["Learn Laplace-smoothed CPTs and write cpts.json", "Write the hand-built CPTs with explanations"]
+        design_section: "Architecture"
+        criteria:
+          - "A function in eval/ builds the 23-node network for an exam covering 3 concepts from cpts.json, with no probabilities typed into code"
+          - "It answers P(grade >= t | e, a) and E[stress next | e, a] with pgmpy VariableElimination for each UBC boundary (50, 55, 60, 64, 68, 72, 76, 80, 85, 90)"
+          - "The notebook only calls that function, so pytest covers the logic"
+          - "Every answer sums to 1 and agrees with a hand-enumerated result on a 2-concept toy network"
+          - "pgmpy is added to eval/pyproject.toml"
+          - "The notebook runs top to bottom with no errors; the PR shows the run"
+      - title: "TypeScript exact inference with parity tests against pgmpy"
+        previous_titles: ["Golden-vector parity tests between Python and TypeScript"]
+        labels: ["type:task", "area:model", "priority:p1", "claude-ready"]
+        ref: "G7"
+        depends_on: ["pgmpy notebook: build the network from cpts.json and answer every query"]
+        design_section: "Architecture"
+        criteria:
+          - "extension/src/model/ computes every query by exact enumeration from cpts.json, with no sampling or approximation"
+          - "shared/fixtures/ holds queries and expected answers produced by pgmpy from a script in eval/, committed with the script"
+          - "Vitest and pytest read the same fixtures, and the TypeScript results agree with the fixtures to 1e-9"
+          - "Fixtures include a course with no graded items, hidden class statistics, targets 50 and 90, and all three actions"
+          - "21 queries (7 courses, 3 actions) run in under 1 second"
+      - title: "Perf, mastery and concept difficulty from Canvas score statistics"
+        labels: ["type:task", "area:model", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G9"
+        depends_on: ["Coverage rule: an exam covers the modules released since the previous exam", "Build the UBC grade map from PAIR CSVs"]
+        design_section: "Prediction"
+        criteria:
+          - "An item's class percentile is interpolated from Canvas min, quartiles, median and max; the quartiles are in points and scores are fractions, so they are converted with the item's points"
+          - "Perf is the weighted mean percentile over graded items, bucketed into Low, Med and High thirds of the class"
+          - "Mastery for a concept is the student's percentile on that concept's graded items; a concept with none takes the course standing"
+          - "Concept difficulty is Easy, Med or Hard from the module's class mean against the course mean (plus or minus 5 points, a named constant); no graded items gives Med"
+          - "When class statistics are hidden the score is placed against the course's historical distribution (the UBC grade map) and the item is flagged as weaker evidence"
+          - "Tests cover complete statistics, hidden statistics, a score above the max, a score of 0, and a module with no graded items"
+      - title: "Item-weight and Graded-so-far evidence, with achievable-grade bounds"
+        labels: ["type:task", "area:model", "priority:p2", "claude-ready"]
+        ref: "G11"
+        depends_on: ["Load assignment-group names and split group weights across their items", "TypeScript exact inference with parity tests against pgmpy"]
+        design_section: "Prediction"
+        criteria:
+          - "Item weight (15% or less, over 15% of the course grade) and Graded so far (25, 50 or 75%) come from the loader's item shares; the 15% cut is a named constant"
+          - "With c the current weighted score, G the graded weight and R = 1 - G: if c*G + 1.00*R < t then P(grade >= t) = 0, and if c*G >= t then P = 1, before any inference"
+          - "A bound hit returns its reason ('out of reach' or 'already locked in') with the numbers used"
+          - "Between the bounds the network's answer is returned unchanged"
+          - "Tests: a target exactly at each bound, G = 0 and G = 1"
+      - title: "Encode Study so far, Timeliness and Days left as network evidence"
+        labels: ["type:task", "area:model", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G13"
+        depends_on: ["Learn Laplace-smoothed CPTs and write cpts.json", "Keep late, missing and excused status on every Canvas submission"]
+        design_section: "Network"
+        criteria:
+          - "Study so far: minutes per course per day from study_session become Low, Med or High with the cut points in cpts.json; with no timer use the node is left unobserved"
+          - "Timeliness: On time, Some late or Often late or missing from Canvas submitted_at, late and missing, with the cut points in cpts.json"
+          - "Days left: 1 to 2, 3 to 7 or 8 and over from the confirmed exam date and today's date"
+          - "Each encoder is a pure function with tests at every bucket edge"
+      - title: "Grade query: P(grade >= target) for each action"
+        previous_titles: ["Posterior predictive P(score >= target) for a candidate plan"]
+        labels: ["type:task", "area:model", "priority:p1", "claude-ready"]
+        depends_on: ["TypeScript exact inference with parity tests against pgmpy", "Perf, mastery and concept difficulty from Canvas score statistics", "Item-weight and Graded-so-far evidence, with achievable-grade bounds", "Encode Study so far, Timeliness and Days left as network evidence"]
+        design_section: "Prediction"
+        criteria:
+          - "For a course and a target t it returns P(grade >= t | e, a) for Intense, Light and Rest"
+          - "The achievable-grade bounds are applied before inference"
+          - "The result has a typed slot for the personalized value, which is null until the offset exists"
+          - "Only the UBC boundaries 50, 55, 60, 64, 68, 72, 76, 80, 85 and 90 are accepted; any other target is an error"
+          - "Each of the three values matches pgmpy on a fixture to 1e-9"
+          - "The UI calls this function and never recomputes the probability"
+
+  # ================================================================ Week 12: offset, planner, calendar
+  - key: E4
+    title: "Story: My predictions adapt to my own graded work"
+    previous_titles: ["Story: My predictions update after every grade"]
+    milestone: w12
+    labels: ["type:story", "area:model", "priority:p1"]
+    story: "As a student, I want my chance of each target to adapt to how I actually do on graded work so that the plan reflects me and not only the average student."
+    design_section: "Personal offset (the personalized model)"
+    tasks:
+      - title: "Store the baseline's predicted decile before each due date"
+        previous_titles: ["Freeze predictions before each grade is released"]
+        labels: ["type:task", "area:model", "area:eval", "priority:p1", "claude-ready"]
+        depends_on: ["Grade query: P(grade >= target) for each action"]
+        criteria:
+          - "When an item's due date passes, the baseline's predicted decile distribution is stored with a timestamp, using only evidence dated before the due date"
+          - "The record includes the most likely decile, which the offset residual uses"
+          - "A stored record is never modified, and recomputing does not overwrite it"
+          - "The frozen_prediction store changes through an appended migration"
+          - "A test shows a grade released after the due date does not change the stored prediction"
+      - title: "Back-test the personal offset and choose m"
+        labels: ["type:task", "area:eval", "area:model", "priority:p2", "claude-ready"]
+        ref: "G8"
+        depends_on: ["pgmpy notebook: build the network from cpts.json and answer every query", "Build the OULAD CSVs with the leakage rules"]
+        criteria:
+          - "p0(k) is counted from OULAD: how often a student's actual exam decile differs from the baseline's most likely decile by k, for k from -2 to +2 (clipped), with Laplace smoothing"
+          - "For each m in {1, 2, 5, 10, 20, 50} it predicts each later assessment of OULAD students with 4 or more assessments, in date order, and reports log-loss"
+          - "The m with the lowest log-loss and the p0 table are written to cpts.json"
+          - "It reports whether offsets carry across modules for students who took more than one"
+          - "Residuals use the baseline only, never the offset model; a test fails if the personalized prediction is used"
+          - "Held-out students are excluded when choosing m"
+      - title: "Personal offset in the extension: recount per grade and shift exam standing"
+        labels: ["type:task", "area:model", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G8"
+        depends_on: ["Store the baseline's predicted decile before each due date", "Back-test the personal offset and choose m", "TypeScript exact inference with parity tests against pgmpy"]
+        criteria:
+          - "P(O = k) = (m * p0(k) + N_you(k)) / (m + N_you), with m and p0 read from cpts.json"
+          - "On a new grade it reads the actual decile from the item's class quartiles, takes the stored baseline decile, clips the residual to plus or minus 2 and adds one count; the same item is never counted twice"
+          - "An item whose class statistics are hidden adds no count"
+          - "The exam-standing distribution is shifted by P(O); mass pushed past decile 1 or 10 stays at the edge"
+          - "The shift matches a pgmpy-computed fixture in shared/fixtures/ to 1e-9"
+          - "With no counts the personalized model equals the baseline"
+          - "Counts are kept in an offset_counts store added by an appended migration"
+      - title: "Show the baseline and personalized models side by side"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G18"
+        depends_on: ["Personal offset in the extension: recount per grade and shift exam standing"]
+        design_section: "Overview"
+        criteria:
+          - "Each upcoming exam shows P(grade >= target) from both models for the chosen action"
+          - "UI copy says 'students like you' and never 'you will'; a test scans the strings"
+          - "A bound hit shows its reason instead of a number"
+          - "With no graded items the personalized column says it equals the baseline"
+          - "The UI calls model functions only; render tests use fixed inputs"
+
+  - key: E7
+    title: "Story: A nightly plan across all my courses that fits my calendar"
+    previous_titles: ["Story: One plan across all my courses that respects when I'm busy"]
+    milestone: w12
+    labels: ["type:story", "area:planner", "priority:p1"]
+    story: "As a student, I want one nightly plan across every course that fits the hours I have free so that I'm never double-booked and I can see why each choice was made."
+    design_section: "Decision"
+    tasks:
+      - title: "Manual availability: weekly hours, busy blocks, study window and daily maximum"
+        previous_titles: ["Weekly availability and busy blocks"]
+        labels: ["type:task", "area:planner", "priority:p1", "claude-ready"]
+        criteria:
+          - "Weekly defaults (for example 2 h on weekdays, 4 h on weekends) and busy blocks with start, end and label are kept in the availability store"
+          - "A study window (default 9:00 to 22:00) and a daily maximum M (default 6 h) are settings; an M below 5 is rejected so Intense stays possible"
+          - "available_hours(day) is the weekly default minus busy blocks inside the window, capped at M, as a pure function"
+          - "Changing a setting notifies the planner so the plan is recomputed"
+          - "Tests: a busy block across the window edge, the M cap, a weekend default"
+      - title: "Load and stress: Load evidence and the Stress queries"
+        labels: ["type:task", "area:model", "priority:p2", "claude-ready"]
+        ref: "G12"
+        depends_on: ["Build the StudentLife stress CSVs", "Learn Laplace-smoothed CPTs and write cpts.json", "TypeScript exact inference with parity tests against pgmpy"]
+        design_section: "Stress"
+        criteria:
+          - "Load today and Load tomorrow are the number of Canvas deadlines (assignments, quizzes, exams) in the next 3 days across all courses, bucketed Low, Med or High with the StudentLife thirds in cpts.json"
+          - "Stress now given Load and Stress next given Stress now and Load tomorrow are queried from cpts.json; a tapped stress level is evidence, and with no tap the network infers it"
+          - "theta (default 0.2, a named setting) adds theta deadline-equivalents to tomorrow's Load per study hour before the lookup: Intense adds 5*theta, Light adds theta, Rest adds 0"
+          - "S(h) = E[stress next | stress now, Load tomorrow + theta*h] is returned for every h from 0 to H, with Low = 0, Med = 0.5, High = 1"
+          - "A test changes Load and checks P(grade >= t) is identical, so stress never changes the grade"
+          - "The results match pgmpy on a fixture to 1e-9"
+      - title: "Utility with lambda presets"
+        labels: ["type:task", "area:planner", "priority:p2", "claude-ready"]
+        ref: "G15"
+        depends_on: ["Grade query: P(grade >= target) for each action", "Load and stress: Load evidence and the Stress queries"]
+        design_section: "Decision"
+        context: "Plan decision, change it here if you disagree: the presets are Grades first = 0.1, Balanced = 0.4 (the design's worked example), Wellbeing first = 1.0."
+        criteria:
+          - "EU(a) = 100*P(grade >= t | e, a) - lambda*100*E[stress next | e, a] is a pure function"
+          - "lambda has three presets, Grades first, Balanced and Wellbeing first, stored as a setting; their values live in the constants module"
+          - "A property test: with lambda = 0 the action with the highest P wins, and raising lambda never favours a higher-stress action"
+          - "Changing the preset changes the next plan"
+      - title: "Exhaustive plan search with one shared stress term"
+        labels: ["type:task", "area:planner", "priority:p2", "claude-ready"]
+        ref: "G14"
+        depends_on: ["Manual availability: weekly hours, busy blocks, study window and daily maximum", "Utility with lambda presets", "Grade query: P(grade >= target) for each action"]
+        criteria:
+          - "Scores every one of the 3^n plans for the n (at most 7) courses with an exam or major project in the next 14 days, with U(a) = sum over courses of 100*P_c(a_c) - lambda*100*S(h) and h = total hours <= H"
+          - "P_c is computed once for each of the 3n course-action pairs and S(h) once for each h from 0 to H; scoring a plan is additions only"
+          - "It matches a brute-force evaluation on random instances with up to 5 courses"
+          - "A constructed instance where greedy marginal allocation is suboptimal is a test, and the search returns the better plan"
+          - "Plans with more than H hours are never returned; when H is under 5, Intense is excluded"
+          - "7 courses run in under 100 ms, not counting the queries"
+
+  - key: VC
+    title: "Story: My study blocks appear on my calendar"
+    milestone: w12
+    labels: ["type:story", "area:planner", "area:extension", "priority:p1"]
+    story: "As a student, I want tomorrow's free hours read from my calendar and my study blocks written back to it so that I never enter commitments twice."
+    design_section: "Decision"
+    tasks:
+      - title: "Read tomorrow's available hours from Google Calendar free/busy"
+        previous_titles: ["Stretch: Calendar import (free/busy only)"]
+        labels: ["type:task", "area:extension", "area:planner", "priority:p2", "claude-ready"]
+        ref: "G16"
+        depends_on: ["Manual availability: weekly hours, busy blocks, study window and daily maximum", "Apply the v2 workflow and CI guardrail changes"]
+        criteria:
+          - "A Connect Google Calendar button starts sign-in; no Google request is made before it is clicked (test)"
+          - "Sign-in uses chrome.identity with the calendar.freebusy scope; the manifest gets the identity permission, an oauth2 block and the Google host, and manifest.test.ts is updated to the exact new list with no wildcards or <all_urls>"
+          - "The free/busy query for tomorrow inside the study window returns busy intervals only; no event titles or details are requested or stored"
+          - "H = min(F, M), where F is tomorrow's free time inside the study window counting free blocks of at least 1 hour, and M is the daily maximum"
+          - "If Google cannot be reached, the manual setting is used for that night and the UI says so (test with a failing fetch)"
+          - "Every Google call lives in extension/src/calendar/ (a test checks the sources)"
+      - title: "Write study blocks to Google Calendar, with an .ics fallback"
+        labels: ["type:task", "area:extension", "area:planner", "priority:p2", "claude-ready"]
+        ref: "G16"
+        depends_on: ["Read tomorrow's available hours from Google Calendar free/busy", "Exhaustive plan search with one shared stress term"]
+        context: "Free/busy returns no event details, so 'tagged' here means recorded locally: the planner stores the id and times of every block it writes and subtracts those intervals from the busy time."
+        criteria:
+          - "Each block in the chosen plan becomes one event titled with a course code and hours only; no probability, grade or stress appears in the title or description (test)"
+          - "The calendar.events scope is requested only when the student turns calendar writes on"
+          - "Event ids are stored in a planned_blocks store (appended migration); re-running the plan for a day updates or deletes only those events, never others (test with a fake calendar holding a foreign event)"
+          - "Recorded blocks are subtracted from the busy intervals when available hours are computed"
+          - "Without a Google connection an .ics file is offered instead, and no request other than GET is made to Canvas (test)"
+          - "Calendar writes exist only in extension/src/calendar/"
+      - title: "Nightly job: recompute when a new grade appears"
+        labels: ["type:task", "area:extension", "priority:p2", "claude-ready"]
+        ref: "G17"
+        depends_on: ["Personal offset in the extension: recount per grade and shift exam standing", "Exhaustive plan search with one shared stress term", "Read tomorrow's available hours from Google Calendar free/busy"]
+        design_section: "Architecture"
+        criteria:
+          - "A chrome.alarms alarm fires nightly; the manifest gets the alarms permission and manifest.test.ts is updated"
+          - "Each run loads Canvas, finds new graded items since the last run, updates the offset counts, re-runs both models, reads tomorrow's available hours, chooses the plan and writes blocks when enabled"
+          - "When nothing changed since the last run, the job exits without querying Google (test with a fake clock)"
+          - "A failed step (Canvas auth, Google unreachable) is recorded and shown in the popup, and later steps use their fallback"
+          - "The job runs in the service worker without DOM APIs"
+
+  # ================================================================ Week 13: evaluation
+  - key: E8
+    title: "Story: The report's claims are backed by held-out evidence"
+    milestone: w13
+    labels: ["type:story", "area:eval", "priority:p1"]
+    story: "As the project author, I want each model component tested on unseen data so that every claim in the report is defensible."
+    design_section: "Evaluation"
+    tasks:
+      - title: "Held-out OULAD evaluation against the course-history-only model"
+        labels: ["type:task", "area:eval", "priority:p1", "claude-ready"]
+        ref: "G20"
+        depends_on: ["pgmpy notebook: build the network from cpts.json and answer every query", "Build the OULAD CSVs with the leakage rules", "Build the StudentLife stress CSVs"]
+        criteria:
+          - "20% of OULAD students (by student, fixed seed) are held out, and log-loss and accuracy are written to eval/results/oulad_holdout.json for the course-history-only model and for the network"
+          - "Smoothing alpha in {0, 1, 5} is compared, and alpha = 0 failing on an empty cell is shown"
+          - "If an Exam-standing parent cell has fewer than about 30 students, quintiles are tried and the better held-out log-loss is kept"
+          - "StudentLife is split by student, and the log-loss of Load alone against guessing the overall rate is reported"
+          - "Tests cover the split, the metric functions and the quintile fallback"
+      - title: "UBC grade-map stability holdout"
+        previous_titles: ["UBC Grades temporal holdout for course and instructor baselines"]
+        labels: ["type:task", "area:eval", "priority:p1", "claude-ready"]
+        ref: "G20"
+        depends_on: ["Build the UBC grade map from PAIR CSVs"]
+        criteria:
+          - "Difficulty group is computed from 2021 to 2023 and outcomes from 2024 to 2025"
+          - "P(grade >= 80 | difficulty group) is reported for Easy, Medium and Hard on the later years"
+          - "The correlation between a course's average in successive years is reported"
+          - "Courses with fewer than 2 years in the early window are reported separately"
+          - "Results are written to eval/results/grade_map_stability.json"
+      - title: "Three-model ladder: course history only, baseline, baseline plus offset"
+        labels: ["type:task", "area:eval", "priority:p1", "claude-ready"]
+        ref: "G20"
+        depends_on: ["Back-test the personal offset and choose m", "Held-out OULAD evaluation against the course-history-only model"]
+        criteria:
+          - "Item-level log-loss for the three models on the OULAD offset back-test set is written to eval/results/ladder.json"
+          - "The paired per-student log-loss difference between baseline and baseline plus offset is reported"
+          - "A test checks that the last two models share all evidence and differ only by the offset"
+      - title: "Personal replay on my own Canvas term"
+        previous_titles: ["Prospective calibration on pilot exports"]
+        labels: ["type:task", "area:eval", "priority:p1", "needs-human"]
+        ref: "G20"
+        depends_on: ["Personal offset in the extension: recount per grade and shift exam standing", "Three-model ladder: course history only, baseline, baseline plus offset", "Ship the logging MVP to me and friends (load unpacked) with consent notes"]
+        criteria:
+          - "Your Canvas term is replayed in date order, and each item is predicted from grades released before its date only; a test with a planted future grade proves it is ignored"
+          - "Item-level log-loss for all three models is reported, and P(target) is plotted over the term"
+          - "Past terms are included if Canvas still shows them"
+          - "The report states n = 1 and presents the replay as a case study"
+      - title: "Personas: four simulated students across lambda and theta"
+        previous_titles: ["Planner simulation: cram vs spaced vs planner"]
+        labels: ["type:task", "area:eval", "area:planner", "priority:p1", "claude-ready"]
+        ref: "G19"
+        depends_on: ["Exhaustive plan search with one shared stress term", "pgmpy notebook: build the network from cpts.json and answer every query"]
+        criteria:
+          - "Four personas (struggling, advanced, overloaded, far from the exam) are defined as evidence sets in code"
+          - "For each persona the chosen plan is tabulated while concept difficulty varies over Easy, Med and Hard, lambda over its presets and theta over {0, 0.1, 0.2, 0.3}"
+          - "A test checks the table has no missing cell"
+          - "The notebook states whether different concept difficulties led to different actions"
+      - title: "Assumed numbers in one module, with a sensitivity sweep for each"
+        labels: ["type:task", "area:eval", "priority:p1", "claude-ready"]
+        ref: "G21"
+        depends_on: ["Utility with lambda presets", "Perf, mastery and concept difficulty from Canvas score statistics", "Exhaustive plan search with one shared stress term"]
+        design_section: "Assumptions and limitations"
+        criteria:
+          - "One constants file lists the five assumed numbers: the concept-difficulty threshold (5 points), the study-volume anchor (3 h per course per week), the item-weight cut (15%), theta (0.2) and the lambda presets, each with its source"
+          - "No other source file defines these numbers (a test searches for them)"
+          - "The TypeScript and Python code read the values from the same JSON file, so they cannot differ"
+          - "Sweeps run for threshold 3 and 8, anchor plus and minus 50%, cut 10% and 20%, theta in {0, 0.1, 0.2, 0.3} and the full lambda range, each writing a table to eval/results/"
+
+  # ================================================================ Weeks 13-14: video and final deliverables
+  - key: E9
+    title: "Story: Presentation video is submitted"
+    milestone: w13
+    labels: ["type:story", "area:docs", "priority:p1"]
+    story: "As the presenter, I want a clear demo and results video so that the class sees the product and the evidence."
+    design_section: "Evaluation"
+    tasks:
+      - title: "Script and slides for the presentation"
+        labels: ["type:task", "area:docs", "priority:p1", "needs-human"]
+        criteria:
+          - "Covers the problem, the architecture, the baseline against personalized result, a live demo, limitations and future work (quizzes and the v1 model)"
+          - "Shows the three-model comparison and the personal replay, with n = 1 stated"
+          - "Names the five assumed numbers and shows one sensitivity result"
+
+  - key: E10
+    title: "Story: Final deliverables are submitted"
+    milestone: w14
+    labels: ["type:story", "area:docs", "priority:p1"]
+    story: "As the author, I want the report, code and packaged extension submitted so that the project is complete and reusable."
+    design_section: "Overview"
+    tasks:
+      - title: "Final report with research basis, evaluation and limitations"
+        labels: ["type:task", "area:docs", "priority:p1", "needs-human"]
+        criteria:
+          - "Two or three entries from each learned table are worked by hand and checked against pandas and pgmpy"
+          - "Each of the five assumed numbers has its sensitivity table"
+          - "The three-model comparison and the personal replay are reported with their limits"
+          - "The limitations cover transfer (OULAD, StudentLife), observational data, stress not changing grades, Canvas dependence, the per-item percentile approximation and n = 1"
+          - "Dataset licences and attribution are included"
+      - title: "README: install, privacy model, architecture, how to rebuild cpts.json"
+        previous_titles: ["README: install, privacy model, architecture, how to run the priors job"]
+        labels: ["type:task", "area:docs", "priority:p1", "claude-ready"]
+        criteria:
+          - "Install steps work from a clean clone (the PR shows them run)"
+          - "The privacy section states the Google Calendar exception and that event titles carry only a course code and hours"
+          - "The architecture section lists the six steps of design-v2 Architecture"
+          - "It explains how to rebuild the CSVs and cpts.json"
+          - "No sentence says 'you will'"
+
+# -------------------------------------------------------------------- Future (v2+)
+# Parked items (#62-#69) are not listed: they already exist and stay as they are.
+stretch:
+  - key: F10
+    title: "Stretch: Crunch warning, the latest start day that still clears the target"
+    previous_titles: ["Crunch detection and explicit tradeoffs"]
+    labels: ["type:stretch", "area:planner", "priority:p2"]
+    remove_labels: ["claude-ready"]
+    story: "As a student, I want to know the latest day I can start studying and still clear my target so that I can plan ahead of an exam cluster."
+    design_section: "Decision"
+    notes: |
+      A stretch goal in design-v2 (Decision). For each possible start day d, compute P(target | start studying on d)
+      and flag the latest d that still clears the target, for example "start MATH 100 by Nov 12 to stay above 80%".
+      Needs the exhaustive plan search. Copy says "students like you", never "you will".
+      The unreachable and already-locked-in cases are covered by the achievable-grade bounds task, not here.
+
+  - key: F11
+    title: "Stretch: Start-date chart in the popup"
+    previous_titles: ["Start-date curve: P(score >= target) by start date in the popup"]
+    labels: ["type:stretch", "area:extension", "area:planner", "priority:p2"]
+    remove_labels: ["claude-ready"]
+    story: "As a student, I want to see my chance of my target by the day I start studying so that I can see what waiting costs."
+    design_section: "Decision"
+    notes: |
+      Chart per exam of P(target | start studying on d), from the crunch-warning computation. No interval band
+      (v2 has no parameter uncertainty). Uses feasible hours only. Copy says "students like you", never "you will".
