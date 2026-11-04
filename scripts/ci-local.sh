@@ -53,7 +53,6 @@ if [ -n "$(ls -A extension/src 2>/dev/null)" ]; then
   cal_hosts=$(grep -rhoE "https?://[a-zA-Z0-9.-]+" extension/src/calendar 2>/dev/null | sort -u || true)
   cal_bad=$(echo "$cal_hosts" | grep -vE "www\.googleapis\.com|accounts\.google\.com|www\.w3\.org|localhost|127\.0\.0\.1|^$" || true)
   bad=$(printf '%s\n%s\n' "$bad" "$cal_bad" | grep -v '^$' || true)
-
   if [ -n "$bad" ]; then
     echo "Unexpected hosts in extension/src (CLAUDE.md rule 1):" >&2; echo "$bad" >&2; exit 1
   fi
