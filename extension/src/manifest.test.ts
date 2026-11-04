@@ -13,8 +13,8 @@ describe("criterion 1: extension is Vite + TS + React, MV3, host permission only
     expect(manifest).not.toHaveProperty("content_scripts");
   });
 
-  it("requests no API permissions yet", () => {
-    expect(manifest).not.toHaveProperty("permissions");
+  it("requests only the idle API permission", () => {
+    expect(manifest.permissions).toEqual(["idle"]);
   });
 
   it("build puts manifest.json and popup.html at the dist root", () => {
