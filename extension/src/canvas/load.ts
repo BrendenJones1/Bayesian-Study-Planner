@@ -34,9 +34,13 @@ export interface Submission {
   item_id: string;
   submitted_at: string | null; // null for instructor-entered grades (e.g. paper exams)
   due_at: string | null;
-  score: number; // fraction of points possible in [0, 1]
+  score: number | null; // fraction of points possible in [0, 1]; null when late/missing and not scored
   bonus: boolean; // raw score exceeded 100% and was capped at 1
   lead_days: number | null;
+  /** Canvas's own flags, kept for Timeliness. */
+  late: boolean;
+  missing: boolean;
+  seconds_late: number;
 }
 /** Minimal sink for the two IndexedDB stores (design doc, Data model). */
 export interface Stores {
@@ -128,15 +132,20 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
 
     for (const a of assignments) {
       const s = a.submission;
+      if (s?.excused) continue; // excused items are always dropped
       const n = normalizeScore(s, a.points_possible);
-      if (!n) continue;
+      // Late or missing items are kept for Timeliness even without a score.
+      if (!n && !s?.late && !s?.missing) continue;
       await stores.putSubmission({
         item_id: `assignment:${a.id}`,
         submitted_at: s.submitted_at ?? null,
         due_at: a.due_at ?? null,
-        score: n.score,
-        bonus: n.bonus,
+        score: n?.score ?? null,
+        bonus: n?.bonus ?? false,
         lead_days: a.due_at && s.submitted_at ? leadDays(a.due_at, s.submitted_at) : null,
+        late: !!s.late,
+        missing: !!s.missing,
+        seconds_late: s.seconds_late ?? 0,
       });
     }
   }
