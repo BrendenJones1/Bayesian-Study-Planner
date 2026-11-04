@@ -2,10 +2,10 @@
 name = "bsp-eval"
 version = "0.0.0"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = ["pgmpy>=1.0"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff", "nbconvert", "ipykernel"]
 
 [tool.setuptools]
 packages = ["bsp_eval"]
