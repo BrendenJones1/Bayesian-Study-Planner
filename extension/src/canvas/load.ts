@@ -5,9 +5,16 @@ type Client = ReturnType<typeof createCanvasClient>;
 export interface Item {
   item_id: string;
   name: string;
-  type: "exam" | "assignment";
+  type: "exam" | "midterm" | "quiz" | "assignment" | "lab";
   due_at: string | null;
+  group_id: number | null;
+  group_name: string | null;
+  /** Percent of the course grade. */
   weight: number | null;
+  /** True when the course has no weighted groups and weight is the item's share of total points. */
+  weight_is_fallback: boolean;
+  /** Exam-type items and major projects only. */
+  study_candidate: boolean;
   points: number | null;
   module_ids: number[];
   class_stats: ClassStats | null;
@@ -20,6 +27,21 @@ export interface ClassStats {
   upper_q: number | null;
   max: number | null;
   mean: number | null;
+}
+const TYPE_BY_GROUP: [RegExp, Item["type"]][] = [
+  [/midterm/i, "midterm"],
+  [/exam|final/i, "exam"],
+  [/quiz/i, "quiz"],
+  [/lab/i, "lab"],
+  [/assignment|homework/i, "assignment"],
+];
+const MAJOR_PROJECT = /project|paper|essay/i;
+const MAJOR_SHARE = 15; // percent; design doc, Item-weight cut
+
+/** Group name gives the type; the item name pattern is the fallback. */
+export function itemType(groupName: string | null, name: string): Item["type"] {
+  const g = TYPE_BY_GROUP.find(([re]) => groupName && re.test(groupName));
+  return g ? g[1] : /exam|midterm|final/i.test(name) ? "exam" : "assignment";
 }
 const STAT_KEYS = ["min", "lower_q", "median", "upper_q", "max", "mean"] as const;
 export interface CourseCache {
@@ -85,7 +107,8 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       ),
       client.getAll<any>(`/courses/${id}/quizzes?per_page=100`),
     ]);
-    const weight = new Map<number, number>(groups.map((g) => [g.id, g.group_weight]));
+    const group = new Map<number, any>(groups.map((g) => [g.id, g]));
+    const weighted = groups.some((g) => g.group_weight > 0);
     const moduleIds = (key: "Assignment" | "Quiz", contentId: number) =>
       modules
         .filter((m) => (m.items ?? []).some((i: any) => i.type === key && i.content_id === contentId))
@@ -94,9 +117,13 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
     const items: Item[] = assignments.map((a) => ({
       item_id: `assignment:${a.id}`,
       name: a.name,
-      type: /exam|midterm|final/i.test(a.name) ? "exam" : "assignment", // shortcut: name heuristic, replace if Canvas exposes exam type
+      type: itemType(group.get(a.assignment_group_id)?.name ?? null, a.name),
       due_at: a.due_at ?? null,
-      weight: weight.get(a.assignment_group_id) ?? null,
+      group_id: a.assignment_group_id ?? null,
+      group_name: group.get(a.assignment_group_id)?.name ?? null,
+      weight: null,
+      weight_is_fallback: false,
+      study_candidate: false,
       points: a.points_possible ?? null,
       module_ids: moduleIds("Assignment", a.id),
       class_stats: a.score_statistics
@@ -108,13 +135,35 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       items.push({
         item_id: `quiz:${q.id}`,
         name: q.title,
-        type: "assignment",
+        type: itemType(group.get(q.assignment_group_id)?.name ?? null, q.title),
         due_at: q.due_at ?? null,
+        group_id: q.assignment_group_id ?? null,
+        group_name: group.get(q.assignment_group_id)?.name ?? null,
         weight: null,
+        weight_is_fallback: false,
+        study_candidate: false,
         points: q.points_possible ?? null,
         module_ids: moduleIds("Quiz", q.id),
         class_stats: null,
       });
+    }
+
+    // Group weight is split across its items; with no weighted groups, use share of total points.
+    const inGroup = new Map<number, number>();
+    for (const it of items) if (it.group_id != null) inGroup.set(it.group_id, (inGroup.get(it.group_id) ?? 0) + 1);
+    const totalPoints = items.reduce((t, it) => t + (it.points ?? 0), 0);
+    for (const it of items) {
+      if (weighted) {
+        const gw = group.get(it.group_id as number)?.group_weight;
+        it.weight = gw ? gw / inGroup.get(it.group_id as number)! : null;
+      } else if (totalPoints > 0 && it.points != null) {
+        it.weight = (100 * it.points) / totalPoints;
+        it.weight_is_fallback = true;
+      }
+      it.study_candidate =
+        it.type === "exam" ||
+        it.type === "midterm" ||
+        (MAJOR_PROJECT.test(it.group_name ?? "") && (it.weight ?? 0) > MAJOR_SHARE);
     }
 
     // Canvas still has no date for these; keep the one the student confirmed.

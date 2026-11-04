@@ -9,7 +9,7 @@ import { openDb, stores } from "../storage/db";
 import type { CourseCache, Item } from "./load";
 
 const item = (o: Partial<Item>): Item => ({
-  item_id: "assignment:1", name: "Midterm", type: "exam", due_at: null, weight: null, points: 50,
+  item_id: "assignment:1", name: "Midterm", type: "exam", due_at: null, group_id: null, group_name: null, weight: null, weight_is_fallback: false, study_candidate: true, points: 50,
   module_ids: [], class_stats: null, ...o,
 });
 const course = (items: Item[]): CourseCache => ({
