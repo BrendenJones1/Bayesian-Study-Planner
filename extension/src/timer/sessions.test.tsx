@@ -12,7 +12,7 @@ const s = (o: Partial<StudySession>): StudySession => ({
   ended_at: "2026-11-01T10:30:00Z", active_minutes: 30, ...o,
 });
 const course = (id: number, code: string): CourseCache => ({
-  canvas_course_id: id, course_code: code, term: null, instructor: null,
+  canvas_course_id: id, course_code: code, term: null, instructor: null, events: null, syllabus: null, announcements: null,
   modules: [{ id: 1, name: "Intro" }, { id: 2, name: "Bayes" }], items: [],
 });
 const all = [s({}), s({ session_id: "b", course_id: 8, active_minutes: 45 })];

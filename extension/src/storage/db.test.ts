@@ -13,7 +13,7 @@ describe("storage layer", () => {
     expect(Object.keys(s)).toHaveLength(8);
 
     await s.course_cache.put({
-      canvas_course_id: 1, course_code: "COSC 111", term: null, instructor: null, modules: [], items: [],
+      canvas_course_id: 1, course_code: "COSC 111", term: null, instructor: null, events: null, syllabus: null, announcements: null, modules: [], items: [],
     });
     await s.submission_history.put({
       item_id: "a", submitted_at: null, due_at: null, score: 0, bonus: false, lead_days: null, late: false, missing: false, seconds_late: 0,

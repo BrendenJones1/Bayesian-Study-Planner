@@ -2,10 +2,17 @@ import { describe, expect, it } from "vitest";
 import { createCanvasClient } from "./client";
 import { loadCanvas, normalizeScore, type CourseCache, type Submission } from "./load";
 
+const COURSES = "/courses?enrollment_state=active&include[]=term&include[]=teachers&include[]=syllabus_body&per_page=100";
 // Recorded-shape fixture responses keyed by path; no live Canvas.
 const fixtures: Record<string, unknown> = {
-  "/courses?enrollment_state=active&include[]=term&include[]=teachers&per_page=100": [
-    { id: 1, course_code: "STAT 230", term: { name: "2026W1" }, teachers: [{ display_name: "Dr. Lee" }] },
+  "/calendar_events?context_codes[]=course_1&all_events=true&per_page=100": [
+    { id: 9, title: "Midterm review", start_at: "2026-10-08T17:00:00Z", end_at: "2026-10-08T18:00:00Z", description: "ignored" },
+  ],
+  "/announcements?context_codes[]=course_1&start_date=2000-01-01&end_date=2100-01-01&per_page=100": [
+    { id: 8, title: "Room change", posted_at: "2026-09-01T10:00:00Z", message: "<p>Now in <b>ESB</b> 1012</p>" },
+  ],
+  [COURSES]: [
+    { id: 1, course_code: "STAT 230", syllabus_body: "<h1>Syllabus</h1><p>Exam &amp; quiz&nbsp;rules</p>", term: { name: "2026W1" }, teachers: [{ display_name: "Dr. Lee" }] },
   ],
   "/courses/1/modules?include[]=items&per_page=100": [
     { id: 10, name: "Week 1", items: [{ type: "Assignment", content_id: 100 }, { type: "Quiz", content_id: 300 }] },
@@ -249,5 +256,43 @@ describe("late, missing and excused status", () => {
   it("scores, bonus flags and lead_days of graded items are unchanged", async () => {
     const [late] = await recs();
     expect(late).toMatchObject({ score: 0.84, bonus: false, lead_days: -1 / 24 });
+  });
+});
+
+describe("calendar events, syllabus and announcements", () => {
+  it("calendar events for each course are stored with title, start and end", async () => {
+    const { courses } = await run();
+    expect(courses[0].events).toEqual([{ title: "Midterm review", start_at: "2026-10-08T17:00:00Z", end_at: "2026-10-08T18:00:00Z" }]);
+  });
+
+  it("the syllabus body is requested with include[]=syllabus_body and stored as plain text", async () => {
+    const urls: string[] = [];
+    const fetchFn = (async (url: string) => {
+      urls.push(url);
+      return new Response(JSON.stringify(fixtures[url.replace("https://canvas.ubc.ca/api/v1", "")] ?? []));
+    }) as unknown as typeof fetch;
+    await loadCanvas(createCanvasClient({ fetchFn }), { putCourse: async () => {}, putSubmission: async () => {} });
+    expect(urls.some((u) => u.includes("/courses?") && u.includes("include[]=syllabus_body"))).toBe(true);
+    expect((await run()).courses[0].syllabus).toBe("Syllabus\nExam & quiz rules");
+  });
+
+  it("announcements are read for each course and stored with title, posted_at and plain-text message", async () => {
+    const { courses } = await run();
+    expect(courses[0].announcements).toEqual([{ title: "Room change", posted_at: "2026-09-01T10:00:00Z", message: "Now in ESB 1012" }]);
+  });
+
+  it("a course where any of the three is unavailable still loads, and the gap is recorded as null, not empty", async () => {
+    const saved = { ...fixtures };
+    delete fixtures["/calendar_events?context_codes[]=course_1&all_events=true&per_page=100"];
+    delete fixtures["/announcements?context_codes[]=course_1&start_date=2000-01-01&end_date=2100-01-01&per_page=100"];
+    (fixtures[COURSES] as { syllabus_body: string | null }[])[0] = { ...(fixtures[COURSES] as object[])[0], syllabus_body: null } as never;
+    try {
+      const { courses } = await run();
+      expect(courses).toHaveLength(1);
+      expect(courses[0].items).toHaveLength(4);
+      expect([courses[0].events, courses[0].syllabus, courses[0].announcements]).toEqual([null, null, null]);
+    } finally {
+      Object.assign(fixtures, saved);
+    }
   });
 });
