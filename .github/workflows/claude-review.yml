@@ -56,15 +56,17 @@ jobs:
             2. Find the linked issue from "Closes #N" in the PR body. Read it with
                `gh issue view N --comments`, including its acceptance criteria and parent story.
                If there is no linked issue, review against CLAUDE.md and docs/ only and say so.
-            3. Read CLAUDE.md, and the sections of docs/design.md and docs/tradeoffs.md that the
-               issue names.
+            3. Read CLAUDE.md, and the sections of docs/design-v2.md that the issue names.
             4. For EVERY acceptance criterion: Met / Partly met / Not met, with file:line evidence,
                and whether a test covers it. Do not infer that something works because the
                PR description says so; check the code and tests.
             5. Check every CLAUDE.md hard rule and model invariant: no network calls beyond Canvas
-               GETs and priors.json; Canvas is read-only; no logit applied to observed scores and no
-               epsilon clamping; one shared soft-day-count function used by model and planner;
-               OULAD never sets the scale of beta; no causal wording in UI copy; no workflow edits.
+              GETs, the published cpts.json and, from extension/src/calendar/ only, the student's own
+              Google Calendar; Canvas is read-only; inference matches pgmpy on shared/fixtures;
+              Laplace smoothing (alpha = 1, no zero entries); no leakage (features dated before the
+              assessment, splits by student); ranks within class; offset residuals against the
+              baseline only, once per item; stress never changes P(grade); lambda and theta never
+              fitted; achievable-grade bounds first; no causal wording in UI copy; no workflow edits.
             6. Flag over-engineering: dependencies, abstractions or files the criteria don't need.
             7. Use the pr-review-toolkit agents if helpful for code quality, tests and silent failures.
             8. Write the review to review.md with this structure:
