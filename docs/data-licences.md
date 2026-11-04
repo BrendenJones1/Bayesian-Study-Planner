@@ -1,13 +1,14 @@
 # Data licences and attribution
 
 Checked in November 2026 for issue #90. This is a record of what the sources say, not legal advice.
-Only OULAD is confirmed. UBC PAIR and StudentLife are **not**, and the rules at the end follow from that.
+OULAD has a stated licence. UBC PAIR and StudentLife each have a usage statement that allows our kind of use
+but does not address republishing derived data, so the rules below keep row-level data out of the repo.
 
-| Dataset | Licence | Confirmed? | May derived CSVs be committed to this public repo? |
+| Dataset | What the source says | Use in this project | Derived data |
 | --- | --- | --- | --- |
-| OULAD | CC BY 4.0 | Yes, on two pages | Yes, with attribution |
-| UBC PAIR grade data | None stated | No | Not until confirmed |
-| StudentLife | None found | No | Not until confirmed |
+| OULAD | CC BY 4.0 (two pages) | Allowed | CSVs may be committed, with attribution |
+| UBC PAIR grade data | Viewing and referencing allowed for general institutional and academic use, subject to UBC data standards and copyright guidelines (quoted by Brenden; guidelines not yet read) | Allowed, subject to the guidelines | Source and per-course-per-year CSVs stay out of the repo; the aggregate grade map in `cpts.json` may be published with attribution once the guidelines are read |
+| StudentLife | "publicly available for research and secondary analysis" (quoted by Brenden); silent on redistribution | Allowed | Row-level CSVs stay out of the repo; aggregate tables in `cpts.json` may be published with the authors' citation |
 
 ## OULAD (Open University Learning Analytics Dataset)
 
@@ -23,7 +24,7 @@ Only OULAD is confirmed. UBC PAIR and StudentLife are **not**, and the rules at 
 
 **Not stated on either page:** any restriction on redistribution, derived data, commercial use or re-identification. The pages describe the data as "anonymised" and do not say how.
 
-**Not read in this check:** the CC BY 4.0 legal text, the Scientific Data paper, and the download files. CC BY 4.0 also expects a link to the licence and a note that the data was changed; confirm against the legal text.
+**Not read:** the CC BY 4.0 legal text, the Scientific Data paper, and the download files. CC BY 4.0 also expects a link to the licence and a note that the data was changed; confirm against the legal text.
 
 **Rule.** The OULAD CSVs from issue #21 may be committed. Put a header or README next to them with the source, the two citations, the licence link, and "modified: aggregated and discretised".
 
@@ -31,48 +32,60 @@ Only OULAD is confirmed. UBC PAIR and StudentLife are **not**, and the rules at 
 
 **What we use.** The CSVs compiled in <https://github.com/DonneyF/ubc-pair-grade-data>, which come from UBC PAIR's grade distribution dashboards.
 
-**What was found.**
+**What the source says.** Quoted by Brenden; the page URL was not supplied, so add it here:
 
-- The repo has no LICENSE file, and GitHub reports no licence for it.
-- Its README states no terms, copyright notice or citation request. It describes the data and its quirks only.
-- The README says that since 2019 the dashboard hides any section or grade letter with fewer than 6 students, so some cells are empty.
-- UBC's own terms for the underlying reports were **not retrieved**. The PAIR site (pair.ubc.ca) has a Terms of Use link in its footer that this check could not read.
-- A search result suggested the current dashboards may need a UBC network or VPN. That came from a weak source.
+> Publicly available aggregate reports, fact sheets, and institutional dashboards provided on the Planning, Analytics, & Institutional Research Office (PAIR) website are allowed to be viewed and referenced for general institutional and academic use, provided you follow UBC data standards and copyright guidelines
 
-**Status: not confirmed.** A repo with no licence gives no permission to copy it. The facts underneath may come from UBC under its own terms.
+**Reading of it.**
+
+- A course project that uses published aggregate grade distributions to learn probabilities is general academic use, so use is allowed.
+- The statement covers "viewed and referenced". It does not say the reports may be copied or republished. The compiled data is also a third party's copy: the repo has no LICENSE file and its README states no terms.
+- It is conditional on "UBC data standards and copyright guidelines", which have **not been read**. Until they are, the safe line is: do not republish the source data, publish only the aggregate probabilities.
+- The repo's README notes that since 2019 any section or grade letter with fewer than 6 students is hidden, so the data is already suppressed for privacy.
+
+**Rule.**
+
+- The source CSVs and the per-course-per-year-bin file (`ubc_grade_bins.csv`, #20) are not committed. The builder downloads the source at a pinned version into a git-ignored folder.
+- The grade map inside `cpts.json` (P(grade >= t | decile, course)) is an aggregate transformation and may be published with the attribution "Grade distribution data: UBC PAIR", after the guidelines are read and found compatible.
 
 **To resolve (needs you):**
-1. Read the Terms of Use at pair.ubc.ca and the terms shown on the Grade Distribution Report.
-2. If unclear, ask PAIR (find a contact on pair.ubc.ca) whether UBCO section grade distributions may be used in a public student project and republished in aggregate.
-3. Record the answer in issue #90.
+1. Add the URL of the statement above.
+2. Read the UBC data standards and copyright guidelines it refers to.
+3. Confirm that publishing course-level grade-to-decile probabilities with attribution is within them. If it is not, the grade map stays out of the published `cpts.json` and the extension has to compute it locally.
 
 ## StudentLife (Dartmouth, 2013)
 
-**What was found.**
+**What the source says.** Quoted by Brenden; the page URL was not supplied, so add it here:
 
-- The dataset's site (studentlife.cs.dartmouth.edu/dataset.html) refused the connection from this environment, and the web archive is blocked in the fetch tool. Its terms were **not read**.
-- Searches found no licence statement for the raw data. A Kaggle mirror lists its licence as "Unknown".
-- An R package for the dataset is GPL-3. That covers the package code, not the data.
-- A different dataset, the College Experience Study, is CC BY-NC-SA 4.0. That is a follow-on study and does not apply here.
-- The citation the authors ask for was not read. The design doc lists Wang et al. 2014, StudentLife (UbiComp 2014).
+> The StudentLife dataset from Dartmouth College is publicly available for research and secondary analysis
 
-**Status: not confirmed.** The data comes from 48 student participants, so treat the terms carefully.
+**Reading of it.**
+
+- A course project that learns stress tables from the survey responses is secondary analysis of a public dataset, so use is allowed.
+- The statement is silent on redistribution. The builders' CSVs (#96) hold one row per stress response of an individual participant. That is a subset of the dataset itself, so committing it would be republishing the data.
+- The counts in `cpts.json` are aggregates over 48 participants and are not the dataset. Publishing them is analysis output.
+- The data comes from 48 student participants, so keep it away from any individual-level publication.
+- The authors' requested citation was not read. The design doc cites Wang et al. 2014, StudentLife (UbiComp 2014).
+
+**Rule.**
+
+- The row-level CSVs (`studentlife_stress_now.csv`, `studentlife_stress_next.csv`) are not committed. The builder downloads the source into a git-ignored folder.
+- The aggregate tables in `cpts.json` may be published with the authors' citation.
 
 **To resolve (needs you):**
-1. Open the dataset page in a browser and read the terms or agreement. Copy the exact wording and the requested citation here.
-2. Check whether use is limited to research or non-commercial work, and whether redistributing derived data is allowed.
-3. If the page is silent, ask the dataset's authors. A search result named Andrew Campbell as the contact; confirm that on the site.
-4. Record the answer in issue #90.
+1. Add the URL of the statement above.
+2. Copy the citation the dataset page asks for, and any download agreement it requires.
+3. Check the page for any limit on sharing aggregate results.
 
 ## Rules until #90 is closed
 
 1. **OULAD-derived CSVs** may be committed, with the attribution above.
-2. **PAIR- and StudentLife-derived CSVs** must not be committed. Their builders (#20, #96) download the source at a pinned version and write to a git-ignored folder.
-3. **`cpts.json`** (#97, #23) is built from all three datasets and is published on GitHub Pages. Do not publish a version containing PAIR or StudentLife counts until both are confirmed.
-4. If a source forbids redistribution of derived data, the fallback in the issue applies: keep a build script that downloads the data, and do not commit the CSVs.
+2. **PAIR and StudentLife source data and row-level CSVs** are never committed. Their builders (#20, #96) download at a pinned version into a git-ignored folder.
+3. **`cpts.json`** (#97, #23) may be published with the aggregate tables from all three datasets, with attribution, once the two "To resolve" lists are done.
+4. If a source turns out to forbid even aggregate publication, the extension computes that table locally from a build script instead of fetching it.
 
 ## Attribution to carry into the README (#59) and the report (#58)
 
 - OULAD: both citations above, with the CC BY 4.0 notice.
-- UBC PAIR: the wording PAIR's terms require, once confirmed.
-- StudentLife: the citation the authors request, once confirmed.
+- UBC PAIR: "Grade distribution data: UBC PAIR", plus whatever its copyright guidelines require.
+- StudentLife: the citation the authors request.
