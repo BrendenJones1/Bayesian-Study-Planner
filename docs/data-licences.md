@@ -1,13 +1,14 @@
 # Data licences and attribution
 
 Checked in November 2026 for issue #90. This is a record of what the sources say, not legal advice.
-Only OULAD may be redistributed. **UBC PAIR data may not be used beyond short personal extracts, or republished in
-any form, without UBC's prior written consent.** StudentLife is described as publicly available for research.
+OULAD is CC BY 4.0. **UBC's Terms of Use bar reproducing or republishing PAIR data without UBC's prior written
+consent. The project owner has decided to use UBC grade data in this class project anyway** (decision recorded below;
+written consent is not yet on file). StudentLife is described as publicly available for research.
 
 | Dataset | What the source says | Status | Derived data |
 | --- | --- | --- | --- |
 | OULAD | CC BY 4.0 (two pages) | Confirmed | CSVs may be committed, with attribution |
-| UBC PAIR grade data | Limited licence for personal, non-commercial display or print of short, unmodified extracts; nothing may be "reproduced, republished or re-disseminated" without UBC's prior written consent | **Blocked until UBC consents** | Nothing derived from it may be committed or published, including the aggregate grade map |
+| UBC PAIR grade data | Limited licence for personal, non-commercial display or print of short, unmodified extracts; nothing may be "reproduced, republished or re-disseminated" without UBC's prior written consent | **Used by owner decision; written consent not on file** | Derived CSV and the grade map in `cpts.json` may be committed and published, with attribution; the raw source files are not committed |
 | StudentLife | "publicly available" (a paper at studentlife.cs.dartmouth.edu) and "publicly available for research and secondary analysis" (quoted by Brenden); silent on redistribution | Use allowed; terms not read by us | Row-level CSVs stay out of the repo; aggregate tables in `cpts.json` may be published with the authors' citation |
 
 ## OULAD (Open University Learning Analytics Dataset)
@@ -49,25 +50,20 @@ A second statement Brenden supplied, from the PAIR site (URL not given), allows 
 - The compiled GitHub repo has no licence file, so it gives no further permission.
 - The README of that repo notes that sections and grade letters with fewer than 6 students are already hidden by UBC.
 
-**Rule.** Until UBC consents in writing:
+**Decision (project owner, November 2026).** UBC grade data stays part of the project. The reasons given: the UBC Grades data comes from PAIR; the course professor is the learning analytics researcher at the school and is expected to have no objection to use in a class project. This is the owner's call. It is not the written consent the terms ask for, and the terms still say what they say. The risk that remains is a request from UBC to take the derived data down.
 
-- No PAIR source files and nothing derived from them are committed or published. That covers `ubc_grade_bins.csv` (#20) and the grade map inside `cpts.json`.
-- The pipeline must not depend on PAIR data being available.
+**Rule.**
 
-**Already in the repo.** `docs/design-v2.md` (and the issues that quote it) contains a few figures derived from PAIR data: the 75.3 and 81.0 difficulty cut points, "P(>= 80 | decile 7) = 0.70" for MATH 100, and "72% against 35%". They are small, but they are published. Decide whether to keep them, ask UBC about them in the same request, or replace them with placeholders.
+- The pipeline uses PAIR data: #20, the grade map in #97 and #23, and #49 go ahead.
+- Derived files (`ubc_grade_bins.csv`, the grade map in `cpts.json`) may be committed and published, with the attribution "Grade distribution data: UBC PAIR (source: github.com/DonneyF/ubc-pair-grade-data)".
+- The raw PAIR source files are not committed. The builder downloads them at a pinned version. The pipeline does not need them in the repo, and it keeps the amount of republished data to the minimum the project uses.
+- If UBC objects, the derived PAIR files are removed and the grade map is replaced (for example with a hand-built mapping stated as an assumption), so the builder should keep the grade map in one table that can be swapped out.
 
-**Options (a decision for you; none is applied):**
+**Already in the repo.** `docs/design-v2.md` quotes a few figures derived from PAIR data (the 75.3 and 81.0 cut points, MATH 100's 0.70, "72% against 35%"). They stay.
 
-1. **Ask UBC for written consent.** Contact the unit responsible for the data (PAIR, UBCO). Say it is a course project, name the exact use (build a course-level grade map, publish it as aggregate probabilities in an open-source extension), and ask for written permission. Your instructor may be able to help. The turnaround is unknown, so do not wait on it.
-2. **Replace the PAIR grade map with something not taken from UBC.** For example, derive the standing-to-grade mapping from the Canvas class statistics a student already sees, or use a hand-built mapping stated as an assumption, with a sensitivity check like the other assumed numbers. This changes the design: the Grade node, difficulty groups and the grade-map stability test all use PAIR today.
-3. **Do both:** request consent, and build the pipeline on option 2 so nothing blocks. If consent arrives, the PAIR map can be added back.
-
-Option 3 is the safest use of the time.
-
-**To resolve (needs you):**
-1. Choose between the options above.
-2. If asking UBC, send the request and record the date and reply in #90.
-3. Check the exact wording on the live page, since this record is built from a summary.
+**Open items (optional, cheap):**
+1. Ask the course professor for a one-line email saying the class project may use the UBC grade distribution data. Save it, or record its date and wording in #90. That turns the decision into written consent from someone at the university, though not necessarily from the unit that owns the data.
+2. Check the exact wording of the Terms of Use on the live page, since this record was built from a summary.
 
 ## StudentLife (Dartmouth, 2013)
 
@@ -93,16 +89,15 @@ Option 3 is the safest use of the time.
 2. From the PDF or the dataset page, copy the citation the authors ask for, and any download agreement.
 3. Check for any limit on sharing aggregate results.
 
-## Rules until #90 is closed
+## Rules
 
 1. **OULAD-derived CSVs** may be committed, with the attribution above.
-2. **UBC PAIR:** nothing from it, or derived from it, is committed or published. #20, the grade-map half of #97 and #23, and the grade-map stability evaluation (#49) wait for UBC's consent or for a replacement.
-3. **StudentLife source data and row-level CSVs** are never committed. The builder (#96) downloads the source into a git-ignored folder.
-4. **`cpts.json`** may be published with the OULAD and StudentLife aggregate tables, with attribution, and without anything derived from PAIR.
-5. If a source turns out to forbid even aggregate publication, the extension computes that table locally from a build script instead of fetching it.
+2. **UBC PAIR:** derived files may be committed and published with attribution, by owner decision. Raw source files are not committed. The grade map lives in one swappable table.
+3. **StudentLife source data and row-level CSVs** are never committed. The builder (#96) downloads the source into a git-ignored folder. Aggregate tables in `cpts.json` may be published with the authors' citation.
+4. If a source objects to publication of derived data, the affected table is removed and replaced, or the extension computes it locally from a build script.
 
 ## Attribution to carry into the README (#59) and the report (#58)
 
 - OULAD: both citations above, with the CC BY 4.0 notice.
-- UBC PAIR: only if UBC consents, and in the wording the consent requires.
+- UBC PAIR: "Grade distribution data: UBC PAIR", plus any wording a consent email asks for.
 - StudentLife: the citation the authors request.
