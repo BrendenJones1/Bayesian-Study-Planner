@@ -1,14 +1,15 @@
 """Build the StudentLife stress CSVs (docs/design-v2.md, Stress; Learning the CPTs).
 
 Research basis: StudentLife (Wang et al. 2014, UbiComp) for the stress self-reports and
-daily deadline counts; thirds within the sample, the within-class rank idea of equipercentile
+deadlines in the next 3 days (as the extension counts them); thirds within the sample, the within-class rank idea of equipercentile
 linking (Kolen & Brennan, Test Equating, Scaling, and Linking).
 
 Label check (design-v2, "Stress recoding"): the answer labels in EMA_definition.json for the
 Stress question are read at build time and must be exactly the five labels in LABELS, in
-order, so level n is the n-th label. A mismatch raises and nothing is recoded. LABELS follow
-the authors' documentation; they were not checked against the downloaded file when this was
-written, so the first real run is that check (test_label_check_* covers the logic).
+order, so level n is the n-th label. A mismatch raises and nothing is recoded. Checked against
+the Kaggle copy dartweichen/student-life: its definition stores the options as one string,
+"[1]A little stressed, [2]Definitely stressed, ...", which check_labels parses (test_label_check_*).
+A response file with no "level" key (u13 in that copy) is skipped.
 Recoding: Feeling great / good -> Low, A little stressed -> Med, Definitely stressed /
 Stressed out -> High.
 
@@ -23,6 +24,7 @@ Run: python -m bsp_priors.ingest_studentlife --raw <StudentLife dataset dir> --o
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -37,13 +39,33 @@ TZ = "America/New_York"  # Dartmouth
 def check_labels(definition: list) -> None:
     """Raise unless EMA_definition.json lists exactly LABELS as the Stress answer options."""
     entry = next((e for e in definition if e.get("name") == "Stress"), None)
-    got = [o for q in (entry or {}).get("questions", []) for o in q.get("matrix_options", [])]
+    got: list[str] = []
+    for q in (entry or {}).get("questions", []):
+        got += q.get("matrix_options", [])
+        # The downloaded file stores one string: "[1]A little stressed, [2]Definitely stressed, ..."
+        numbered = re.findall(r"\[(\d+)\]\s*([^,\[]+)", q.get("options") or "")
+        if [int(n) for n, _ in numbered] != list(range(1, len(numbered) + 1)):
+            raise ValueError(f"Stress options are not numbered 1..n in order: {q['options']!r}")
+        got += [label.strip() for _, label in numbered]
     if got != LABELS:
         raise ValueError(f"Stress labels in EMA_definition.json are {got}, expected {LABELS}")
 
 
+def next3(deadlines: pd.DataFrame) -> pd.DataFrame:
+    """Deadlines in the next 3 days (today and the two after) per student-day: uid, date, deadlines.
+
+    This is the variable the extension reads from Canvas (design-v2, Network: Load). Counting single
+    days instead gives thirds of (0, 0), because 79% of student-days have no deadline. The last days of
+    the term see fewer days.
+    """
+    wide = deadlines.set_index("uid")
+    wide = wide[sorted(wide.columns)]  # ISO dates sort chronologically
+    ahead = wide.T.iloc[::-1].rolling(3, min_periods=1).sum().iloc[::-1].T
+    return ahead.reset_index().melt(id_vars="uid", var_name="date", value_name="deadlines").dropna()
+
+
 def load_cuts(deadlines: pd.Series) -> tuple[float, float]:
-    """Thirds of deadlines per student-day: Low if n <= c1, Med if n <= c2, else High."""
+    """Thirds of next-3-day deadline counts per student-day: Low if n <= c1, Med if n <= c2, else High."""
     q = deadlines.quantile([1 / 3, 2 / 3], interpolation="lower")
     return float(q.iloc[0]), float(q.iloc[1])
 
@@ -55,7 +77,7 @@ def to_load(n: pd.Series, cuts: tuple[float, float]) -> pd.Series:
 def build_tables(responses: pd.DataFrame, deadlines: pd.DataFrame):
     """responses: uid, level (1..5), resp_time (epoch s). deadlines: wide, uid then one column per date.
     Return (stress_now, stress_next, cuts, split)."""
-    long = deadlines.melt(id_vars="uid", var_name="date", value_name="deadlines").dropna()
+    long = next3(deadlines)
     cuts = load_cuts(long.deadlines)
     long["load"] = to_load(long.deadlines, cuts)
     r = responses.dropna(subset=["level"]).copy()
@@ -76,7 +98,8 @@ def write_all(raw: Path, out: Path) -> tuple[float, float]:
     for f in sorted((raw / "EMA" / "response" / "Stress").glob("Stress_u*.json")):
         d = pd.DataFrame(json.loads(f.read_text()))
         d["uid"] = f.stem.removeprefix("Stress_")
-        rows.append(d[["uid", "level", "resp_time"]])
+        # A file with no "level" key (u13 in the downloaded data) yields NaN levels, dropped later.
+        rows.append(d.reindex(columns=["uid", "level", "resp_time"]))
     now, nxt, cuts, split = build_tables(
         pd.concat(rows, ignore_index=True), pd.read_csv(raw / "education" / "deadlines.csv")
     )

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from bsp_priors import ingest_oulad as o
 
-WEIGHTS = [10] * 8 + [20]  # shares .1 each, last .2; checkpoints land on items 4, 6, 9
+WEIGHTS = [10] * 5 + [20] + [10] * 3  # shares .1 each, item 6 is .2; checkpoints land on items 4 and 6
 WITHDRAWN = {41, 42, 141, 142}
 
 
@@ -44,7 +44,7 @@ def make(seed=1):
     }
 
 
-def test_criterion_1_writes_five_csvs_in_design_layout(tmp_path: Path):
+def test_criterion_1_writes_four_csvs_in_design_layout(tmp_path: Path):
     raw = tmp_path / "raw"
     raw.mkdir()
     for k, f in zip(
@@ -58,12 +58,12 @@ def test_criterion_1_writes_five_csvs_in_design_layout(tmp_path: Path):
         "oulad_exam_standing": ["perf", "study", "timeliness", "exam_difficulty", "exam_standing"],
         "oulad_final_standing_g25": ["perf", "exam_standing", "item_weight", "final_standing"],
         "oulad_final_standing_g50": ["perf", "exam_standing", "item_weight", "final_standing"],
-        "oulad_final_standing_g75": ["perf", "exam_standing", "item_weight", "final_standing"],
         "oulad_study": ["perf", "study"],
     }
     for name, c in cols.items():
         df = pd.read_csv(out / f"{name}.csv")
         assert len(df) > 0 and set(c) <= set(df.columns), name
+    assert not (out / "oulad_final_standing_g75.csv").exists()  # design: checkpoints are 25 and 50 only
     ex = pd.read_csv(out / "oulad_exam_standing.csv")
     assert set(ex.perf) <= set(o.LEVELS) and set(ex.timeliness) <= set(o.TIMELINESS)
     assert ex.exam_standing.between(1, 10).all()
@@ -109,10 +109,9 @@ def test_criterion_4_withdrawn_students_are_excluded():
 def test_criterion_5_item_weight_is_share_of_final_grade_cut_at_15_percent():
     finals = o.build_tables(**make())[2]
     # 2014J raw weights are doubled; raw 20 > 15 but the share is still 10%
-    for g in (25, 50):
-        assert set(finals[g].item_weight) == {"<=15%"}
-    assert set(finals[75].item_weight) == {">15%"}  # share 20%
-    assert set(finals[75].code_presentation) == {"2013J", "2014J"}
+    assert set(finals[25].item_weight) == {"<=15%"}
+    assert set(finals[50].item_weight) == {">15%"}  # share 20%
+    assert set(finals[50].code_presentation) == {"2013J", "2014J"}
 
 
 def test_criterion_6_split_is_80_20_by_student_fixed_seed_and_saved(tmp_path: Path):
@@ -151,3 +150,15 @@ def test_licence_readme_is_written_next_to_the_csvs():
     for s in ("10.1038/sdata.2017.171", "10.24432/C5KK69", "CC BY 4.0",
               "creativecommons.org/licenses/by/4.0", "modified: aggregated and discretised".capitalize()):
         assert s in text
+
+
+def test_summary_line_counts_sparse_cells_from_the_sparse_column():
+    rep = pd.DataFrame({"n_students": [5, 40, 12], "sparse": [True, False, True]})
+    assert o.sparse_summary(rep) == "2 of 3 Exam-standing cells under 30 students"
+
+
+def test_checkpoints_are_25_and_50_only():
+    finals = o.build_tables(**make())[2]
+    assert o.CHECKPOINTS == (25, 50)
+    assert set(finals) == {25, 50}
+    assert all(len(df) > 0 for df in finals.values())

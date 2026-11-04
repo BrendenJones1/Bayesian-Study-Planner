@@ -60,14 +60,14 @@ Arrows point from parent to child. Perf and Item weight also feed Final standing
 | Timeliness | On time / Some late / Often late or missing | — | Evidence: Canvas `submitted_at`, `late`, `missing`. Cut points from OULAD's distribution. |
 | Study so far | Low / Med / High | Perf | **Learned, OULAD.** Evidence when the timer was used. |
 | Days left | 1–2 / 3–7 / 8+ | — | Evidence: the exam date (see Data sources) |
-| Graded so far | 25% / 50% / 75% | — | Evidence: weights of the graded Canvas items |
+| Graded so far | 25% / 50% | — | Evidence: weights of the graded Canvas items. The table used is the highest checkpoint not above the graded share (the 25% table below 25%), so more than half graded uses the 50% table. |
 | Item weight | ≤15% / >15% of the course grade | — | Evidence: Canvas assignment-group weights, split across the group's items |
 | Load | Low / Med / High | — | Two nodes, today and tomorrow. Evidence: Canvas deadlines in the next 3 days. Cut points from StudentLife's thirds. |
 | Action | Intense 5 h / Light 1 h / Rest | — | Decision, one per course per day |
 | Study before the exam | Low / Med / High | Study so far, Action, Days left | Hand-built rule (Prediction section) |
 | Exam standing | Deciles 1–10 | Perf, Study before the exam, Timeliness, Exam difficulty | **Learned, OULAD** (assessment level) |
 | Personal offset | −2 to +2 deciles | — | **Learned, your graded items.** Personalized model only. |
-| Final standing | Deciles 1–10 | Perf, Exam standing (after offset), Item weight, Graded so far | **Learned, OULAD.** One table per checkpoint. |
+| Final standing | Deciles 1–10 | Perf, Exam standing (after offset), Item weight, Graded so far | **Learned, OULAD.** One table per checkpoint (25% and 50%). |
 | Grade | UBC letter-grade bins | Final standing, course | **Learned, UBC Grades**, averaged across years, then bounded by what's still achievable |
 | Stress now | Low / Med / High | Load | **Learned, StudentLife.** Set as evidence if the student taps a level. |
 | Stress next | Low / Med / High | Stress now, Load tomorrow (+ study hours) | **Learned, StudentLife**, plus one assumed parameter |
@@ -115,7 +115,7 @@ Worked example: 412 OULAD rows with (Perf High, Study High, On time, Exam Hard),
 | CSV | Rows | Learned table | Free parameters |
 | --- | --- | --- | --- |
 | `oulad_exam_standing.csv` | One per student × assessment | Exam standing \| Perf, Study, Timeliness, Exam difficulty | 81 parent combinations × 9 = 729 |
-| `oulad_final_standing_g{25,50,75}.csv` | One per student, per checkpoint | Final standing \| Perf, Exam standing, Item weight | 60 × 9 = 540 per table |
+| `oulad_final_standing_g{25,50}.csv` | One per student, per checkpoint | Final standing \| Perf, Exam standing, Item weight | 60 × 9 = 540 per table |
 | `oulad_study.csv` | One per student × assessment | Study so far \| Perf | 3 × 2 = 6 |
 | `ubc_grade_bins.csv` | One per course × year × bin | Grade \| decile, course (averaged across years) | Exact slices; nothing to smooth |
 | `studentlife_stress_now.csv` | One per stress response | Stress now \| Load | 3 × 2 = 6 |
@@ -126,6 +126,7 @@ Worked example: 412 OULAD rows with (Perf High, Study High, On time, Exam Hard),
 - **No leakage.** Perf, Study and Timeliness use only assessments *before* the one being predicted. The standing outcome uses that assessment, or the final result, only.
 - **Thirds and deciles within each class.** Ranks are computed per module presentation (OULAD) or per course offering (UBC), so the levels mean the same thing across schools.
 - **Withdrawals excluded** in OULAD, matching UBC distributions, which contain no W's.
+- **Two checkpoints, 25% and 50%.** A checkpoint is the share of the final grade already graded before the assessment being predicted. In OULAD the final exam is about half of the grade, so no module has 75% graded before it and a 75% table would have no rows. A student with more than half graded uses the 50% table.
 - **Stress recoding.** Check StudentLife's stress answer labels against `EMA_definition.json` before recoding into Low / Med / High.
 - **Sparse cells.** If any Exam-standing row has fewer than about 30 students, try quintiles instead of deciles. Keep whichever scores better on held-out log-loss.
 - **Hand-calculable.** Two or three entries per table are worked by hand in the report and checked against pandas and pgmpy.
@@ -155,7 +156,7 @@ Residuals are always measured against the **baseline**, never the personalized m
 
 Stress affects only which action is chosen, through the utility. It never changes P(grade). Both stress tables are learned from StudentLife, and one parameter is assumed and swept.
 
-- **Load:** the number of Canvas deadlines (assignments, quizzes, exams) in the next 3 days, across all courses. It's bucketed by StudentLife's own thirds, because StudentLife's `deadlines.csv` counts the same thing per student per day.
+- **Load:** the number of Canvas deadlines (assignments, quizzes, exams) in the next 3 days, across all courses. It's bucketed by StudentLife's own thirds, because StudentLife's `deadlines.csv` counts deadlines per student per day: summing today and the next two days gives the same quantity as the Canvas count. Counting single days does not work, since 79% of student-days have no deadline and both thirds fall on 0. Measured cut points: Low is 0 deadlines in the window, Med is 1, High is 2 or more.
 - **Stress now | Load:** learned from StudentLife responses paired with that day's deadline count. If the student taps a stress level, that becomes evidence, the same quantity StudentLife measured. No tap: the network infers it from Load.
 - **Stress next | Stress now, Load tomorrow:** learned from each student's consecutive responses. This is how stress carries over from one day to the next.
 - **The one assumption:** StudentLife has no study-hours data, so the action's effect is a single parameter θ. Each study hour today adds θ deadline-equivalents to tomorrow's load before the lookup: Intense adds 5θ, Light 1θ, Rest 0. Default θ = 0.2, so 5 hours of study counts as about one deadline and an Intense day adds one deadline to tomorrow's load. The report shows decisions for θ ∈ {0, 0.1, 0.2, 0.3}.
@@ -230,6 +231,7 @@ Five numbers are assumed rather than learned. Each one has a sensitivity check i
 - **Stress doesn't change grades** in this model, only the choice of action.
 - **Canvas dependence.** Hidden class statistics weaken Perf and stop the offset from updating in that course.
 - **Approximation.** Averaging per-item percentiles only approximates your percentile on the course total.
+- **Late-term standing.** OULAD has no checkpoint beyond 50% graded, so a student with 75% or more graded is predicted with the 50% table. The remaining exam's weight still enters through Item weight.
 - **The personal replay has n = 1** and is presented as a case study.
 
 ## Out of scope and future work
