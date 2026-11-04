@@ -141,7 +141,7 @@ def build(split: str = "train", alpha: float = ALPHA, tables: Path = TABLES, bui
             "item_weight_share_of_final_grade": WEIGHT_CUT,
         },
         "tables": cpts,
-        "hand_built": hand_built(cuts, STUDY_VOLUME_HOURS),
+        "hand_built": hand_built(),
     }
 
 

@@ -35,14 +35,22 @@ def test_criterion_3_every_table_has_an_explanation(hb):
 
 def test_criterion_4_five_rows_recomputed_by_hand(hb):
     t = hb["study_before"]
-    # Hand arithmetic. Cuts: volume 2/4 h, active share 0.199/0.410.
-    # Low pace (1 h, 0.1), Rest, 8+ (10 d): 1*10/11 = 0.91 h -> 0; 0.1*10/11 = 0.09 -> 0; sum 0 -> Low
+    # Hand arithmetic, window 28 (27 other days). Volume cuts 2/4 h/week; active-day cuts 5.4/12.15.
+    # Low (1 h, 0.1), Rest: 3.86 h -> 0.96/week -> 0; 2.7 days -> 0; sum 0 -> Low
     assert _state(t, ["Low", "Rest", "8+"]) == "Low"
-    # Med pace (3 h, 0.3), Rest, 8+: 3*10/11 = 2.73 h -> 1; 0.3*10/11 = 0.27 -> 1; sum 2 -> Med
-    assert _state(t, ["Med", "Rest", "8+"]) == "Med"
-    # Low pace, Intense, 1-2 (2 d): (2/7 + 5)/3*7 = 12.3 h -> 2; (0.2 + 1)/3 = 0.40 -> 1; sum 3 -> High
-    assert _state(t, ["Low", "Intense", "1-2"]) == "High"
-    # High pace (5 h, 0.6), Light, 3-7 (5 d): (25/7 + 1)/6*7 = 5.33 h -> 2; (3 + 1)/6 = 0.67 -> 2; sum 4 -> High
-    assert _state(t, ["High", "Light", "3-7"]) == "High"
-    # Low pace, Light, 8+: (10/7 + 1)/11*7 = 1.55 h -> 0; (1 + 1)/11 = 0.18 -> 0; sum 0 -> Low
-    assert _state(t, ["Low", "Light", "8+"]) == "Low"
+    # Low, Intense: 8.86 h -> 2.21/week -> 1; 2.7 + 1 = 3.7 days -> 0; sum 1 -> Low
+    assert _state(t, ["Low", "Intense", "1-2"]) == "Low"
+    # Med (3 h, 0.3), Light: 11.57 + 1 = 12.57 h -> 3.14/week -> 1; 8.1 + 1 = 9.1 days -> 1; sum 2 -> Med
+    assert _state(t, ["Med", "Light", "3-7"]) == "Med"
+    # Med, Intense: 16.57 h -> 4.14/week -> 2; 9.1 days -> 1; sum 3 -> High
+    assert _state(t, ["Med", "Intense", "8+"]) == "High"
+    # High (5 h, 0.6), Rest: 19.29 h -> 4.82/week -> 2; 16.2 days -> 2; sum 4 -> High
+    assert _state(t, ["High", "Rest", "3-7"]) == "High"
+
+
+def test_level_only_table_and_days_left_has_no_effect(hb):
+    t = hb["study_before"]
+    want = {"Low": ("Low", "Low", "Low"), "Med": ("Med", "Med", "High"), "High": ("High", "High", "High")}
+    for study, (rest, light, intense) in want.items():
+        for days in ("1-2", "3-7", "8+"):
+            assert [_state(t, [study, a, days]) for a in ("Rest", "Light", "Intense")] == [rest, light, intense]

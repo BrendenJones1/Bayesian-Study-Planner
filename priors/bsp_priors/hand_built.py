@@ -10,11 +10,16 @@ import itertools
 from bsp_priors.ingest_oulad import DIFFICULTY, LEVELS
 
 DAYS_LEFT = ["1-2", "3-7", "8+"]
-ACTIONS = {"Intense": 5.0, "Light": 1.0, "Rest": 0.0}  # hours today
-# Assumed representative values inside each bucket (design-v2 gives only the cuts):
-PACE_HOURS_WEEK = {"Low": 1.0, "Med": 3.0, "High": 5.0}  # inside the 2 h / 4 h volume cuts
-PACE_ACTIVE_SHARE = {"Low": 0.1, "Med": 0.3, "High": 0.6}  # inside the OULAD thirds cuts
-DAYS = {"1-2": 2, "3-7": 5, "8+": 10}  # remaining days, representative
+WINDOW_DAYS = 28  # same window as the OULAD CSV
+ACTION_HOURS = {"Intense": 5.0, "Light": 1.0, "Rest": 0.0}  # hours today
+PACE_H_PER_WEEK = {"Low": 1.0, "Med": 3.0, "High": 5.0}  # midpoints of the volume levels
+VOLUME_CUTS_H_PER_WEEK = (2.0, 4.0)  # low < 2, med 2-4, high >= 4 (about 3 h/course/week, Babcock & Marks 2011)
+# PLACEHOLDER: replace with the median share within each OULAD active-day third once G1 lands.
+ACTIVE_SHARE = {"Low": 0.1, "Med": 0.3, "High": 0.6}
+# PLACEHOLDER until G1 computes the OULAD thirds: midpoints between the representative active-day counts.
+_REP_DAYS = [ACTIVE_SHARE[k] * (WINDOW_DAYS - 1) for k in ("Low", "Med", "High")]
+ACTIVE_DAY_CUTS = ((_REP_DAYS[0] + _REP_DAYS[1]) / 2, (_REP_DAYS[1] + _REP_DAYS[2]) / 2)
+DAYS_REP = {"1-2": 2, "3-7": 5, "8+": 10}  # only used when timer logs exist (not in this table)
 
 
 def _one_hot(states: list[str], s: str) -> list[float]:
@@ -33,31 +38,38 @@ def _mean_table(child: str, states: list[str], parent_names: list[str]) -> dict:
                            "rounded. Example: (0, 0, 1) has mean 0.33, which rounds to 0."}
 
 
-def _bucket(x: float, low_max: float, med_max: float) -> int:
-    return 0 if x <= low_max else 1 if x <= med_max else 2
+def _bucket(x: float, cuts: tuple[float, float]) -> int:
+    return 0 if x < cuts[0] else 1 if x < cuts[1] else 2
 
 
-def study_before(study: str, action: str, days: str, cuts: dict, volume: dict) -> str:
-    """Pace held for the remaining days, then today's action; volume level + active-day level summed."""
-    n = DAYS[days]
-    hours_week = (PACE_HOURS_WEEK[study] / 7 * n + ACTIONS[action]) / (n + 1) * 7
-    active = (PACE_ACTIVE_SHARE[study] * n + (ACTIONS[action] > 0)) / (n + 1)
-    total = _bucket(hours_week, volume["low_max"], volume["med_max"]) + _bucket(active, cuts["low_max"], cuts["med_max"])
+def study_before(study: str, action: str) -> str:
+    """Level-only rule (no timer logs): pace over the elapsed window, today replaced by the action.
+
+    Days left has no effect here; it matters only with real logs. With an exam more than 27 days
+    away today is outside the window, so the action would add nothing (not modelled: the day buckets stop at 8+).
+    """
+    hours = PACE_H_PER_WEEK[study] * (WINDOW_DAYS - 1) / 7 + ACTION_HOURS[action]
+    active = ACTIVE_SHARE[study] * (WINDOW_DAYS - 1) + (ACTION_HOURS[action] > 0)
+    total = _bucket(hours / 4, VOLUME_CUTS_H_PER_WEEK) + _bucket(active, ACTIVE_DAY_CUTS)
     return LEVELS[0 if total <= 1 else 1 if total == 2 else 2]
 
 
-def study_before_table(cuts: dict, volume: dict) -> dict:
-    parents = {"study": LEVELS, "action": list(ACTIONS), "days_left": DAYS_LEFT}
-    values = {"|".join(u): _one_hot(LEVELS, study_before(u[0], u[1], u[2], cuts, volume)) for u in itertools.product(*parents.values())}
+def study_before_table() -> dict:
+    parents = {"study": LEVELS, "action": list(ACTION_HOURS), "days_left": DAYS_LEFT}
+    values = {"|".join(u): _one_hot(LEVELS, study_before(u[0], u[1])) for u in itertools.product(*parents.values())}
     return {"parents": parents, "states": LEVELS, "values": values,
-            "explanation": "Window = days left + today. Hours/week = (pace_h_per_week/7 * days + action hours) / (days + 1) * 7, "
-                           f"pace Low/Med/High = {list(PACE_HOURS_WEEK.values())} h, days 1-2/3-7/8+ = {list(DAYS.values())}, "
-                           "action 5/1/0 h. Active share = (pace_share * days + 1 if action is not Rest) / (days + 1), "
-                           f"pace share = {list(PACE_ACTIVE_SHARE.values())}. Each is bucketed 0/1/2 by the volume and active-day "
-                           "cuts in cut_points; the two levels are summed: 0-1 Low, 2 Med, 3-4 High."}
+            "explanation": f"Level-only fallback, used when there are no timer logs. Window = {WINDOW_DAYS} days. "
+                           f"hours = pace * {WINDOW_DAYS - 1} / 7 + action hours; weekly = hours / 4; pace Low/Med/High = "
+                           f"{list(PACE_H_PER_WEEK.values())} h/week, action Intense/Light/Rest = 5/1/0 h. "
+                           f"active days = share * {WINDOW_DAYS - 1} + 1 if the action is not Rest; share = "
+                           f"{list(ACTIVE_SHARE.values())} (placeholder). Weekly hours are bucketed 0/1/2 by cuts "
+                           f"{list(VOLUME_CUTS_H_PER_WEEK)}, active days by cuts {[round(c, 2) for c in ACTIVE_DAY_CUTS]} "
+                           "(placeholder); the two levels are summed: 0-1 Low, 2 Med, 3-4 High. Days left has no effect "
+                           "in this fallback; with timer logs the logged hours and active days replace the pace for the "
+                           "elapsed days and the pace covers only the remaining days."}
 
 
-def hand_built(cuts: dict, volume: dict) -> dict:
+def hand_built() -> dict:
     return {"exam_difficulty": _mean_table("Exam difficulty", DIFFICULTY, ["d1", "d2", "d3"]),
             "perf": _mean_table("Perf", LEVELS, ["m1", "m2", "m3"]),
-            "study_before": study_before_table(cuts, volume)}
+            "study_before": study_before_table()}
