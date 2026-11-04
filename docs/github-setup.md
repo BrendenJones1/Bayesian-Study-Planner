@@ -39,7 +39,7 @@ tonight to create a token and run one script.
 | `workflows/claude-review.yml` | `.github/workflows/` | Reviewer agent: independent check against the requirements |
 | `workflows/release.yml` | `.github/workflows/` | CD: tag → extension zip on a GitHub release |
 | `workflows/priors-nightly.yml` | `.github/workflows/` | CD: nightly model fit → `priors.json` on GitHub Pages |
-| `issues.yaml`, `create_issues.py` | `github-setup/` | Backlog: 11 stories, 49 sub-issues, 9 stretch goals |
+| `issues-v2.yaml`, `create_issues.py` | `github-setup/` | Backlog for the v2 design (the v1 plan is in `github-setup/archive/issues-v1.yaml`) |
 
 **Labels:** `claude-ready` means the nightly agent may pick the issue, and it never
 starts a run by itself. `claude-now` starts the agent on that issue immediately.
@@ -74,7 +74,7 @@ Then open the Project and set it up:
 - **New view → Board**, grouped by Status.
 - **⋯ → Workflows:** turn on *Auto-add to project*, *Item closed → Done*, and *Pull request merged → Done*.
 
-To change issues later, edit `issues.yaml` and run with `--update`. That rewrites existing
+To change issues later, edit `issues-v2.yaml` and run with `--update`. That rewrites existing
 issues in place (renamed ones are matched by `previous_titles`) and keeps labels you added by hand.
 
 ## Step 2. Export the design docs (2 min)
@@ -95,7 +95,7 @@ mkdir -p .github/workflows .claude docs github-setup
 cp /path/to/github-setup/CLAUDE.md .
 cp /path/to/github-setup/claude-settings.json .claude/settings.json
 cp /path/to/github-setup/workflows/*.yml .github/workflows/
-cp /path/to/github-setup/{issues.yaml,create_issues.py,README.md} github-setup/
+cp /path/to/github-setup/{issues-v2.yaml,create_issues.py,README.md} github-setup/
 git add . && git commit -m "Add agents, CI/CD and design docs" && git push
 ```
 

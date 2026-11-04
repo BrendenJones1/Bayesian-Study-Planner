@@ -1,6 +1,6 @@
 # Bayesian Study Planner — GitHub issue plan for the v2 design (docs/design-v2.md)
 #
-# Same format as issues.yaml, plus:
+# The default plan. Same format as the archived v1 plan (archive/issues-v1.yaml), plus:
 #   previous_titles  on a story, task, stretch item or milestone: the existing issue or milestone is
 #                    rewritten or renamed in place instead of duplicated.
 #   depends_on       on a task: titles (or previous titles) of tasks in this plan, or titles of existing

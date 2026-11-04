@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Create labels, milestones, user-story issues, linked sub-issues and a
-Project board from issues.yaml, using the GitHub CLI (gh).
+Project board from a plan file (default: issues-v2.yaml), using the GitHub CLI (gh).
 
 Usage
   python create_issues.py --repo OWNER/REPO --dry-run
@@ -37,6 +37,7 @@ from collections import Counter
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+DEFAULT_PLAN = HERE / "issues-v2.yaml"  # the v1 plan is kept in archive/issues-v1.yaml
 
 # A plan label with one of these prefixes replaces the issue's old label with that prefix.
 EXCLUSIVE_PREFIXES = ("priority:", "type:", "area:")
@@ -359,7 +360,7 @@ def validate(plan: dict) -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", required=True, help="OWNER/REPO")
-    ap.add_argument("--plan", default=str(HERE / "issues.yaml"))
+    ap.add_argument("--plan", default=str(DEFAULT_PLAN))
     ap.add_argument("--project", help="Also create/reuse a Projects board with this title")
     ap.add_argument("--skip-stretch", action="store_true", help="Do not create the Future (v2+) issues")
     ap.add_argument("--update", action="store_true",

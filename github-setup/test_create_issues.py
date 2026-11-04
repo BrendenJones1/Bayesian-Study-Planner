@@ -165,6 +165,14 @@ def test_a_link_that_already_exists_is_not_sent_again():
     assert gh.writes == []
 
 
+def test_the_default_plan_is_issues_v2_and_the_v1_plan_is_archived():
+    here = ci.HERE
+    assert ci.DEFAULT_PLAN == here / "issues-v2.yaml"
+    assert ci.DEFAULT_PLAN.exists()
+    assert not (here / "issues.yaml").exists()
+    assert (here / "archive" / "issues-v1.yaml").exists()
+
+
 def test_dry_run_still_runs_read_only_gh_calls(monkeypatch):
     calls = []
 
