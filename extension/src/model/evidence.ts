@@ -1,6 +1,6 @@
 import type { ClassStats, Item } from "../canvas/load";
 
-/** Concept difficulty cut: module class mean vs course mean, in points (design-v2, Network; sensitivity ±3, ±8). */
+/** Concept difficulty cut: module class mean vs course mean, in percentage points (design-v2, Network; sensitivity ±3, ±8). */
 export const DIFFICULTY_CUT = 5;
 
 export type Level = "Low" | "Med" | "High";
@@ -15,11 +15,6 @@ export interface GradeBin {
   lo: number;
   hi: number;
   n: number;
-}
-export interface Percentile {
-  p: number;
-  /** True when class statistics were hidden and the historical distribution was used instead. */
-  weak: boolean;
 }
 
 /**
@@ -40,17 +35,17 @@ export function interpolatePercentile(score: number, s: ClassStats | null, point
   return xs[i] === xs[i - 1] ? ps[i] : ps[i - 1] + ((score - xs[i - 1]) / (xs[i] - xs[i - 1])) * 0.25;
 }
 
-/** Share of the historical students below the score; students in a bin are spread evenly across it. */
-export function historicalPercentile(score: number, bins: GradeBin[]): number {
+/** Share of the historical students below the score (students in a bin spread evenly); null with no history (unobserved). */
+export function historicalPercentile(score: number, bins: GradeBin[]): number | null {
   const g = score * 100;
   const total = bins.reduce((a, b) => a + b.n, 0);
-  if (total === 0) return 0.5; // no history: no information
+  if (total === 0) return null;
   const below = bins.reduce((a, b) => a + b.n * Math.min(1, Math.max(0, (g - b.lo) / (b.hi - b.lo))), 0);
   return below / total;
 }
 
-/** Percentile from class statistics, else from the historical distribution and flagged weak. */
-export function itemPercentile(g: Graded, history: GradeBin[]): Percentile {
+/** Percentile from class statistics, else from the historical distribution and flagged weak. p is null when neither exists. */
+export function itemPercentile(g: Graded, history: GradeBin[]): { p: number | null; weak: boolean } {
   const p = interpolatePercentile(g.score, g.item.class_stats, g.item.points);
   return p === null ? { p: historicalPercentile(g.score, history), weak: true } : { p, weak: false };
 }
@@ -58,40 +53,57 @@ export function itemPercentile(g: Graded, history: GradeBin[]): Percentile {
 /** Thirds of the class. */
 export const level = (p: number): Level => (p < 1 / 3 ? "Low" : p < 2 / 3 ? "Med" : "High");
 
-/** Weighted mean percentile over graded items; null when there are none. A missing weight counts as 1. */
-export function meanPercentile(gs: Graded[], history: GradeBin[]): number | null {
-  const w = gs.map((g) => g.item.weight ?? 1);
-  const total = w.reduce((a, b) => a + b, 0);
-  if (gs.length === 0 || total <= 0) return null;
-  return gs.reduce((a, g, i) => a + w[i] * itemPercentile(g, history).p, 0) / total;
+/**
+ * Mean percentile weighted by each item's share of the course grade. Items with an unknown weight are left
+ * out of the mean; if every weight is unknown the weights are equal. Items with no percentile are skipped.
+ * weak is true when more than half the weight came from the historical fallback. Null when nothing is usable.
+ */
+export function meanPercentile(gs: Graded[], history: GradeBin[]): { mean: number; weak: boolean } | null {
+  const ps = gs.map((g) => ({ ...itemPercentile(g, history), w: g.item.weight })).filter((x) => x.p !== null);
+  const anyKnown = ps.some((x) => x.w != null && x.w > 0);
+  const used = ps.map((x) => ({ ...x, w: anyKnown ? (x.w ?? 0) : 1 })).filter((x) => x.w > 0);
+  const total = used.reduce((a, x) => a + x.w, 0);
+  if (total <= 0) return null;
+  return {
+    mean: used.reduce((a, x) => a + x.w * (x.p as number), 0) / total,
+    weak: used.reduce((a, x) => a + (x.weak ? x.w : 0), 0) > total / 2,
+  };
 }
 
 /** Perf: weighted mean percentile over graded items, in thirds. Null when nothing is graded yet. */
-export function perf(gs: Graded[], history: GradeBin[]): Level | null {
+export function perf(gs: Graded[], history: GradeBin[]): { level: Level; weak: boolean } | null {
   const m = meanPercentile(gs, history);
-  return m === null ? null : level(m);
+  return m && { level: level(m.mean), weak: m.weak };
 }
 
 /** Mastery of a concept: percentile on its graded items; with none, the course standing (Perf). */
 export function mastery(conceptItems: Graded[], coursePerf: Level, history: GradeBin[]): Level {
   const m = meanPercentile(conceptItems, history);
-  return m === null ? coursePerf : level(m);
+  return m === null ? coursePerf : level(m.mean);
 }
 
-/** Class mean of an item as percent of its points, or null when Canvas gave no mean or points. */
-const meanPct = (g: Graded) => {
-  const { mean } = g.item.class_stats ?? { mean: null };
-  return mean == null || !g.item.points ? null : (mean / g.item.points) * 100;
-};
-const avg = (gs: Graded[]) => {
-  const m = gs.map(meanPct).filter((x): x is number => x !== null);
+/** Mean of the class means, each as percent of the item's points; null when Canvas gave none. */
+const avgPct = (gs: Graded[]) => {
+  const m = gs
+    .map(({ item: { class_stats: s, points } }) => (s?.mean == null || !points ? null : (s.mean / points) * 100))
+    .filter((x): x is number => x !== null);
   return m.length ? m.reduce((a, b) => a + b, 0) / m.length : null;
 };
 
-/** Concept difficulty: the module's class mean against the course mean, ±DIFFICULTY_CUT points. No data gives Med. */
+/**
+ * Concept difficulty, compared within item type (from the assignment-group name) so a module of assignments is
+ * not marked Easy just because assignments are marked easier than quizzes: per type, module class-mean percent
+ * minus course class-mean percent; the gaps are averaged across the types present. Beyond ±DIFFICULTY_CUT
+ * points is Easy/Hard. No data gives Med.
+ */
 export function conceptDifficulty(moduleItems: Graded[], courseItems: Graded[]): Difficulty {
-  const m = avg(moduleItems);
-  const c = avg(courseItems);
-  if (m === null || c === null) return "Med";
-  return m - c > DIFFICULTY_CUT ? "Easy" : c - m > DIFFICULTY_CUT ? "Hard" : "Med";
+  const gaps: number[] = [];
+  for (const t of new Set(moduleItems.map((g) => g.item.type))) {
+    const m = avgPct(moduleItems.filter((g) => g.item.type === t));
+    const c = avgPct(courseItems.filter((g) => g.item.type === t));
+    if (m !== null && c !== null) gaps.push(m - c);
+  }
+  if (!gaps.length) return "Med";
+  const gap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  return gap > DIFFICULTY_CUT ? "Easy" : gap < -DIFFICULTY_CUT ? "Hard" : "Med";
 }
