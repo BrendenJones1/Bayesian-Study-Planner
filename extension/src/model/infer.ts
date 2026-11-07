@@ -129,6 +129,12 @@ export function infer(
   const gm = c.tables.grade_map.courses[course];
   const p_grade: Record<number, number> = {};
   for (const t of targets) p_grade[t] = finalStanding.reduce((a, p, i) => a + p * gm[String(t)][i], 0);
-  const stress = posterior(nodes, "StressNext", ev);
-  return { p_grade, e_stress_next: LEVELS.reduce((a, s, i) => a + STRESS_SCORE[s] * stress[i], 0) };
+  return { p_grade, e_stress_next: expectedStress(nodes, ev) };
 }
+
+const expectedStress = (nodes: Record<string, Node>, ev: Record<string, State>) =>
+  posterior(nodes, "StressNext", ev).reduce((a, p, i) => a + STRESS_SCORE[LEVELS[i]] * p, 0);
+
+/** E[stress next | evidence] alone (Low 0, Med 0.5, High 1). Stress sits on its own branch, so no grade evidence is needed. */
+export const stressNext = (cpts: unknown, evidence: Record<string, string>): number =>
+  expectedStress(buildNodes(cpts as Tables), evidence);

@@ -8,7 +8,7 @@ Research basis: pgmpy VariableElimination is the reference (Koller & Friedman, P
 import json
 from pathlib import Path
 
-from bsp_eval.network import answer, load_cpts
+from bsp_eval.network import answer, load_cpts, stress_curve
 
 ROOT = Path(__file__).parents[1]
 FULL = {"M1": "High", "M2": "Med", "M3": "Med", "D1": "Hard", "D2": "Med", "D3": "Med", "Timeliness": "On time",
@@ -26,12 +26,21 @@ CASES = [  # (name, course, evidence)
     ("weak student, hard exam", "CHEM 111", FULL | {"M1": "Low", "M2": "Low", "M3": "Med", "D1": "Hard", "D3": "Hard"}),
     ("strong student, easy exam", "ENGL 112", FULL | {"M1": "High", "M2": "High", "M3": "High", "D1": "Easy", "D2": "Easy", "D3": "Easy"}),
 ]
+STRESS_CASES = [  # (name, load counts in deadlines, H, optional theta and tapped stress level)
+    ("no tap, quiet days", {"load_today": 0, "load_tomorrow": 0, "hours": 8}),
+    ("no tap, busy days", {"load_today": 3, "load_tomorrow": 1, "hours": 8}),
+    ("tapped High stress", {"load_today": 1, "load_tomorrow": 0, "hours": 8, "stress_now": "High"}),
+    ("theta 0.3", {"load_today": 2, "load_tomorrow": 0, "hours": 10, "theta": 0.3, "stress_now": "Low"}),
+]
 
 if __name__ == "__main__":
     cpts = load_cpts(ROOT / "priors" / "tables" / "cpts.json")
     queries = [{"name": f"{n} / {a}", "course": c, "evidence": e, "action": a, **answer(cpts, c, e, a)}
                for n, c, e in CASES for a in ("Intense", "Light", "Rest")]
+    curves = [{"name": n, **a, "curve": stress_curve(cpts, a["load_today"], a["load_tomorrow"], a["hours"],
+                                                      a.get("theta", 0.2), a.get("stress_now"))}
+              for n, a in STRESS_CASES]
     out = ROOT / "shared" / "fixtures" / "inference.json"
     out.write_text(json.dumps({"cpts": "priors/tables/cpts.json", "model_version": cpts["model_version"],
-                               "queries": queries}, indent=1) + "\n")
+                               "queries": queries, "stress_curves": curves}, indent=1) + "\n")
     print(f"wrote {len(queries)} queries to {out}")

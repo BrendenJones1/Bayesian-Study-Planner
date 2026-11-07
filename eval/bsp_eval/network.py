@@ -86,6 +86,27 @@ def build_network(cpts: dict, course: str, target: int) -> DiscreteBayesianNetwo
     return net
 
 
+def load_state(count: float, cuts: dict) -> str:
+    """Bucket a (possibly fractional) deadline count by the StudentLife thirds in cpts.json cut_points."""
+    return "Low" if count <= cuts["low_max"] else "Med" if count <= cuts["med_max"] else "High"
+
+
+def stress_curve(cpts: dict, load_today: float, load_tomorrow: float, hours: int, theta: float = 0.2,
+                 stress_now: str | None = None) -> list[float]:
+    """S(h) = E[stress next | stress now, Load tomorrow + theta*h] for h = 0..hours (design-v2, Stress)."""
+    cuts = cpts["cut_points"]["load_deadlines_next_3_days"]
+    course = next(iter(cpts["tables"]["grade_map"]["courses"]))
+    ve = VariableElimination(build_network(cpts, course, TARGETS[0]))  # stress is off the grade branch
+    out = []
+    for h in range(hours + 1):
+        ev = {"LoadToday": load_state(load_today, cuts), "LoadTomorrow": load_state(load_tomorrow + theta * h, cuts)}
+        if stress_now:
+            ev["StressNow"] = stress_now
+        f = ve.query(["StressNext"], ev, show_progress=False)
+        out.append(sum(STRESS_SCORE[s] * float(f.get_value(StressNext=s)) for s in LEVELS))
+    return out
+
+
 def answer(cpts: dict, course: str, evidence: dict, action: str, targets: list[int] = TARGETS) -> dict:
     """P(grade >= t | e, a) for each target t, and E[stress next | e, a].
 

@@ -2,3 +2,9 @@
 
 /** Item-weight cut as a fraction of the course grade: "<=15%" at or below, ">15%" above. */
 export const ITEM_WEIGHT_CUT = 0.15;
+
+/**
+ * θ: deadline-equivalents added to tomorrow's Load per study hour (design-v2, Stress). Assumed, no data.
+ * Sensitivity check: the report sweeps {0, 0.1, 0.2, 0.3}. A named setting, never fitted.
+ */
+export const THETA = 0.2;
