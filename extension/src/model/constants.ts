@@ -8,3 +8,10 @@ export const ITEM_WEIGHT_CUT = 0.15;
  * Sensitivity check: the θ sweep {0, 0.1, 0.2, 0.3} is run by the evaluation issue (G21), not here. A named setting, never fitted.
  */
 export const THETA = 0.2;
+
+/**
+ * λ presets: weight on E[stress next] in EU(a) (design-v2, Decision). A preference, never fitted.
+ * Sensitivity check: the report shows the chosen action across λ (evaluation issue); Balanced is the design's worked example.
+ */
+export const LAMBDA_PRESETS = { grades: 0.1, balanced: 0.4, wellbeing: 1.0 } as const;
+export type LambdaPreset = keyof typeof LAMBDA_PRESETS;
