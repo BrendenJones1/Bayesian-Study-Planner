@@ -97,7 +97,8 @@ def grade_map_table(bins: list[dict]) -> dict:
         if len(dists) < 2:
             dists = [pooled[difficulty(avgs[(course, next(iter(years)))])]]
         courses[course] = {
-            str(t): [sum(_p_in_decile(d, t, k) for d in dists) / len(dists) for k in range(1, 11)]
+            # min(): averaging floats can land a hair above 1 (1.0000000000000007), not a valid probability
+            str(t): [min(1.0, sum(_p_in_decile(d, t, k) for d in dists) / len(dists)) for k in range(1, 11)]
             for t in TARGETS
         }
     return {"parents": {"final_standing": DECILES, "course": sorted(courses)}, "targets": TARGETS,
