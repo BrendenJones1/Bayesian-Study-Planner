@@ -7,12 +7,27 @@ import { coverage } from "../canvas/coverage";
 import type { StudySession } from "../storage/db";
 import { courseStanding, gradedSoFarState, inferBounded, itemWeightState, type Bound } from "./bounds";
 import { encodeDaysLeft, encodeStudy, encodeTimeliness, localDay, type CutPoints } from "./encode";
-import { conceptDifficulty, mastery, perf, type GradeBin, type Graded } from "./evidence";
+import { conceptDifficulty, mastery, perf, type Difficulty, type GradeBin, type Graded, type Level } from "./evidence";
 import { TARGETS } from "./infer";
 
 export const ACTIONS = ["Intense", "Light", "Rest"] as const;
 export type Action = (typeof ACTIONS)[number];
 const SLOTS = 3; // concept slots M1..M3 / D1..D3 in the network (cpts.json hand_built.perf)
+
+const MASTERY: Level[] = ["Low", "Med", "High"];
+const DIFFICULTY: Difficulty[] = ["Easy", "Med", "Hard"];
+const mean = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length); // level index; .5 rounds up
+
+/**
+ * Splits modules (in course order) into SLOTS contiguous groups, as even as possible (larger groups first).
+ * Under SLOTS modules, each is repeated SLOTS times first, so the overall mean is unchanged and no slot is empty.
+ */
+function slotGroups<T>(modules: T[]): T[][] {
+  const ms = modules.length < SLOTS ? modules.flatMap((m) => Array<T>(SLOTS).fill(m)) : modules;
+  const base = Math.floor(ms.length / SLOTS), extra = ms.length % SLOTS;
+  let at = 0;
+  return Array.from({ length: SLOTS }, (_, i) => ms.slice(at, (at += base + (i < extra ? 1 : 0))));
+}
 
 /** A cached course with the student's own submissions, the first timer use and the course's grade history. */
 export interface CourseData extends CourseCache {
@@ -27,7 +42,8 @@ export interface CourseData extends CourseCache {
  * Timeliness reads Canvas's late/missing flags on the items that have a stored submission. The loader stores
  * none for excused items, nor for an unsubmitted item not yet past due, so both count as neither late nor missing.
  * shortcut: an on-time item with no score yet leaves no record and is not counted; upgrade with an `excused` field.
- * shortcut: only the first 3 covered modules get concept nodes; Load nodes stay unobserved (no encoder yet).
+ * Every covered module feeds one of the 3 concept slots (see slotGroups); a slot gets its group's mean level.
+ * shortcut: Load nodes stay unobserved (no encoder yet).
  * Nodes with no data are left out, so the network treats them as unobserved.
  */
 export function buildEvidence(
@@ -59,12 +75,14 @@ export function buildEvidence(
 
   const coursePerf = perf(graded, history);
   if (coursePerf) {
-    coverage(course, exam.item_id)
-      .slice(0, SLOTS)
-      .forEach((m, i) => {
-        const inModule = graded.filter((g) => g.item.module_ids.includes(m));
-        set(`M${i + 1}`, mastery(inModule, coursePerf.level, history));
-        set(`D${i + 1}`, conceptDifficulty(inModule, graded));
+    const per = coverage(course, exam.item_id).map((m) => {
+      const inModule = graded.filter((g) => g.item.module_ids.includes(m));
+      return { m: MASTERY.indexOf(mastery(inModule, coursePerf.level, history)), d: DIFFICULTY.indexOf(conceptDifficulty(inModule, graded)) };
+    });
+    if (per.length)
+      slotGroups(per).forEach((g, i) => {
+        set(`M${i + 1}`, MASTERY[mean(g.map((x) => x.m))]);
+        set(`D${i + 1}`, DIFFICULTY[mean(g.map((x) => x.d))]);
       });
   }
   return ev;
