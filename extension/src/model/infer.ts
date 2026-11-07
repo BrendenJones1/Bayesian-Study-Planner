@@ -18,7 +18,7 @@ interface Table {
   states: string[];
   values: Record<string, number[]>;
 }
-interface Tables {
+export interface Tables {
   tables: Record<string, Table> & { grade_map: { courses: Record<string, Record<string, number[]>> } };
   hand_built: Record<string, Table>;
 }
@@ -136,5 +136,5 @@ const expectedStress = (nodes: Record<string, Node>, ev: Record<string, State>) 
   posterior(nodes, "StressNext", ev).reduce((a, p, i) => a + STRESS_SCORE[LEVELS[i]] * p, 0);
 
 /** E[stress next | evidence] alone (Low 0, Med 0.5, High 1). Stress sits on its own branch, so no grade evidence is needed. */
-export const stressNext = (cpts: unknown, evidence: Record<string, string>): number =>
-  expectedStress(buildNodes(cpts as Tables), evidence);
+export const stressNext = (cpts: Tables, evidence: Record<string, string>): number =>
+  expectedStress(buildNodes(cpts), evidence);

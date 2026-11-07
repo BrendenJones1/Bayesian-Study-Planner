@@ -5,6 +5,6 @@ export const ITEM_WEIGHT_CUT = 0.15;
 
 /**
  * θ: deadline-equivalents added to tomorrow's Load per study hour (design-v2, Stress). Assumed, no data.
- * Sensitivity check: the report sweeps {0, 0.1, 0.2, 0.3}. A named setting, never fitted.
+ * Sensitivity check: the θ sweep {0, 0.1, 0.2, 0.3} is run by the evaluation issue (G21), not here. A named setting, never fitted.
  */
 export const THETA = 0.2;
