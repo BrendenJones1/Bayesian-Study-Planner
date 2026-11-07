@@ -53,7 +53,8 @@ export interface CourseCache {
   events: { title: string; start_at: string | null; end_at: string | null }[] | null;
   syllabus: string | null; // plain text
   announcements: { title: string; posted_at: string | null; message: string }[] | null;
-  modules: { id: number; name: string }[];
+  /** In Canvas order. unlock_at is when the module opens, null when Canvas gives none. */
+  modules: { id: number; name: string; unlock_at?: string | null }[];
   items: Item[];
 }
 export interface Submission {
@@ -207,7 +208,7 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       announcements:
         announcements &&
         announcements.map((a) => ({ title: a.title, posted_at: a.posted_at ?? null, message: htmlToText(a.message ?? "") })),
-      modules: modules.map((m) => ({ id: m.id, name: m.name })),
+      modules: modules.map((m) => ({ id: m.id, name: m.name, unlock_at: m.unlock_at ?? null })),
       items,
     });
 

@@ -57,7 +57,7 @@ describe("canvas loader", () => {
     expect(courses).toHaveLength(1);
     const c = courses[0];
     expect(c).toMatchObject({ canvas_course_id: 1, course_code: "STAT 230", term: "2026W1", instructor: "Dr. Lee" });
-    expect(c.modules).toEqual([{ id: 10, name: "Week 1" }]);
+    expect(c.modules).toEqual([{ id: 10, name: "Week 1", unlock_at: null }]);
     expect(c.items.map((i) => [i.item_id, i.type, i.weight, i.points, i.module_ids])).toEqual([
       ["assignment:100", "assignment", 10, 50, [10]],
       ["assignment:101", "midterm", 30, 100, []],

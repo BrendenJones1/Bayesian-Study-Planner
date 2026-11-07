@@ -45,6 +45,13 @@ export interface FrozenPrediction {
   created_at: string;
 }
 
+/** A student's coverage for one exam; confirmed stays null until they confirm it. */
+export interface CoverageOverride {
+  item_id: string;
+  module_ids: number[];
+  confirmed: boolean | null;
+}
+
 export interface CptsCache {
   /** Singleton record. */
   id: "default";
@@ -63,6 +70,7 @@ export interface Schema {
   posterior: Posterior;
   availability: Availability;
   frozen_prediction: FrozenPrediction;
+  coverage_override: CoverageOverride;
 }
 export type StoreName = keyof Schema;
 
@@ -76,6 +84,7 @@ const KEY_PATHS: { [K in StoreName]: string } = {
   availability: "id",
   frozen_prediction: "item_id",
   cpts_cache: "id",
+  coverage_override: "item_id",
 };
 
 /**
@@ -99,6 +108,9 @@ export const MIGRATIONS: ((db: IDBDatabase, tx: IDBTransaction) => void)[] = [
   // Migration 0 creates every KEY_PATHS store, so a fresh install already has cpts_cache; only upgrades need it.
   (db) => {
     if (!db.objectStoreNames.contains("cpts_cache")) db.createObjectStore("cpts_cache", { keyPath: "id" });
+  },
+  (db) => {
+    if (!db.objectStoreNames.contains("coverage_override")) db.createObjectStore("coverage_override", { keyPath: "item_id" });
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
@@ -146,4 +158,5 @@ export const stores = (db: IDBDatabase) => ({
   availability: store(db, "availability"),
   frozen_prediction: store(db, "frozen_prediction"),
   cpts_cache: store(db, "cpts_cache"),
+  coverage_override: store(db, "coverage_override"),
 });
