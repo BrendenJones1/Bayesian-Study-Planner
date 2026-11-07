@@ -57,6 +57,12 @@ export interface CoverageOverride {
   confirmed: boolean | null;
 }
 
+/** Singleton: local date (YYYY-MM-DD) the timer was first used; its absence means "never used". */
+export interface TimerMeta {
+  id: "default";
+  first_use: string;
+}
+
 export interface CptsCache {
   /** Singleton record. */
   id: "default";
@@ -76,6 +82,7 @@ export interface Schema {
   availability: Availability;
   frozen_prediction: FrozenPrediction;
   coverage_override: CoverageOverride;
+  timer_meta: TimerMeta;
 }
 export type StoreName = keyof Schema;
 
@@ -90,6 +97,7 @@ const KEY_PATHS: { [K in StoreName]: string } = {
   frozen_prediction: "item_id",
   cpts_cache: "id",
   coverage_override: "item_id",
+  timer_meta: "id",
 };
 
 /**
@@ -116,6 +124,9 @@ export const MIGRATIONS: ((db: IDBDatabase, tx: IDBTransaction) => void)[] = [
   },
   (db) => {
     if (!db.objectStoreNames.contains("coverage_override")) db.createObjectStore("coverage_override", { keyPath: "item_id" });
+  },
+  (db) => {
+    if (!db.objectStoreNames.contains("timer_meta")) db.createObjectStore("timer_meta", { keyPath: "id" });
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
@@ -164,4 +175,5 @@ export const stores = (db: IDBDatabase) => ({
   frozen_prediction: store(db, "frozen_prediction"),
   cpts_cache: store(db, "cpts_cache"),
   coverage_override: store(db, "coverage_override"),
+  timer_meta: store(db, "timer_meta"),
 });

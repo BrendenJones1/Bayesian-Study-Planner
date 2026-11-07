@@ -10,7 +10,7 @@ describe("storage layer", () => {
     const db = await openDb(fresh());
     const s = stores(db);
     expect(Array.from(db.objectStoreNames).sort()).toEqual(Object.keys(s).sort());
-    expect(Object.keys(s)).toHaveLength(10);
+    expect(Object.keys(s)).toHaveLength(11);
 
     await s.course_cache.put({
       canvas_course_id: 1, course_code: "COSC 111", term: null, instructor: null, events: null, syllabus: null, announcements: null, modules: [], items: [],
