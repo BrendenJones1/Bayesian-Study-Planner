@@ -16,7 +16,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from bsp_priors.hand_built import hand_built
-from bsp_priors.ingest_oulad import DIFFICULTY, LEVELS, TIMELINESS, WEIGHT_CUT
+from bsp_priors.ingest_oulad import (
+    DIFFICULTY,
+    LEVELS,
+    SOME_LATE_MAX,
+    TIMELINESS,
+    WEIGHT_CUT,
+)
 from bsp_priors.ingest_ubcgrades import BINS, _p_in_decile, difficulty, read_csv
 
 ALPHA = 1.0
@@ -134,7 +140,8 @@ def build(split: str = "train", alpha: float = ALPHA, tables: Path = TABLES, bui
         "alpha": alpha,
         "split": split,
         "cut_points": {
-            "timeliness": {"states": TIMELINESS, "rule": "share of earlier items late or missing: 0 On time, <= 1/3 Some late, else Often late or missing"},
+            "timeliness": {"states": TIMELINESS, "some_late_max": SOME_LATE_MAX,
+                           "rule": "share of earlier items late or missing: 0 On time, <= some_late_max Some late, else Often late or missing"},
             "study_volume_hours_per_course_week": STUDY_VOLUME_HOURS,
             "study_active_day_share": cuts,
             "study_level_sum": STUDY_LEVEL_SUM,

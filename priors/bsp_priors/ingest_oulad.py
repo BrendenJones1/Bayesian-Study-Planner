@@ -24,6 +24,7 @@ PRES = ["code_module", "code_presentation"]
 LEVELS = ["Low", "Med", "High"]
 TIMELINESS = ["On time", "Some late", "Often late or missing"]
 DIFFICULTY = ["Easy", "Med", "Hard"]
+SOME_LATE_MAX = 1 / 3  # Timeliness: share of earlier items late or missing; <= this is Some late (also written to cpts.json)
 WEIGHT_CUT = 0.15  # assumed (design-v2 Assumptions): share of the final grade
 DIFFICULTY_CUT = 5.0  # assumed: points from the mean of earlier class means
 SPARSE = 30
@@ -83,7 +84,7 @@ def _features(a, grp, sa, clicks, students, prev_mean):
     frac = (late + missing).reindex(students).fillna(len(prior)) / len(prior)
     clk = clicks[clicks.date < a.date].groupby("id_student").sum_click.sum()
     study = bucket(clk.reindex(students).fillna(0), 3)
-    tl = pd.Series(np.select([frac == 0, frac <= 1 / 3], [1, 2], 3), frac.index)
+    tl = pd.Series(np.select([frac == 0, frac <= SOME_LATE_MAX], [1, 2], 3), frac.index)
     diff = sa[sa.id_assessment == a.id_assessment].score.mean() - prev_mean
     d = 1 if diff > DIFFICULTY_CUT else (3 if diff < -DIFFICULTY_CUT else 2)
     return pd.DataFrame(

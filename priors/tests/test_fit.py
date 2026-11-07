@@ -63,6 +63,7 @@ def test_criterion_5_cut_points_for_the_extension(built):
     assert c["study_level_sum"] == {"Low": [0, 1], "Med": [2], "High": [3, 4]}
     assert c["load_deadlines_next_3_days"] == {"low_max": 0.0, "med_max": 1.0}
     assert c["item_weight_share_of_final_grade"] == 0.15
+    assert c["timeliness"]["some_late_max"] == 1 / 3
     assert c["timeliness"]["states"] == ["On time", "Some late", "Often late or missing"]
 
 
