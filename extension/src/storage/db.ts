@@ -37,6 +37,11 @@ export interface Availability {
   id: "default";
   weekly_defaults: { day: number; minutes: number }[]; // day 0 = Sunday
   busy_blocks: { start: string; end: string; label: string }[];
+  /** Study window, minutes after local midnight. Default 540 (9:00) to 1320 (22:00). */
+  window_start?: number;
+  window_end?: number;
+  /** Daily maximum M in hours. Default 6; at least 5 so Intense stays possible. */
+  max_hours?: number;
 }
 export interface FrozenPrediction {
   item_id: string;
