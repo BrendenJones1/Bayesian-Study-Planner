@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { CourseCache } from "../canvas/load";
+import type { CourseCache, Submission } from "../canvas/load";
+import { Grades } from "./Grades";
 import { confirmDueAt } from "../canvas/undated";
 import type { StudySession } from "../storage/db";
 import { deleteSession, editSession } from "../timer/sessions";
@@ -9,6 +10,7 @@ import { Timer } from "./Timer";
 
 export function App({
   initial = [],
+  submissions = [],
   save,
   initialSessions = [],
   putSession = async () => {},
@@ -17,6 +19,7 @@ export function App({
 }: {
   onExport?: () => Promise<void>;
   initial?: CourseCache[];
+  submissions?: Submission[];
   save: (c: CourseCache) => Promise<void>;
   initialSessions?: StudySession[];
   putSession?: (s: StudySession) => Promise<void>;
@@ -41,6 +44,7 @@ export function App({
           }, fail)
         }
       />
+      <Grades courses={courses} submissions={submissions} />
       <Sessions
         courses={courses}
         sessions={sessions}

@@ -11,6 +11,7 @@ void openDb().then(async (db) => {
     <App
       initial={await courseCache.getAll()}
       save={courseCache.put}
+      submissions={await stores(db).submission_history.getAll()}
       initialSessions={await sessions.getAll()}
       putSession={sessions.put}
       removeSession={sessions.delete}
