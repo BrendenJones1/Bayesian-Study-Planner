@@ -176,14 +176,21 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       });
     }
 
-    // Group weight is split across its items; with no weighted groups, use share of total points.
+    // Group weight is split across its items by points (equally if the group has no points);
+    // with no weighted groups, use share of total points.
     const inGroup = new Map<number, number>();
-    for (const it of items) if (it.group_id != null) inGroup.set(it.group_id, (inGroup.get(it.group_id) ?? 0) + 1);
+    const groupPoints = new Map<number, number>();
+    for (const it of items) {
+      if (it.group_id == null) continue;
+      inGroup.set(it.group_id, (inGroup.get(it.group_id) ?? 0) + 1);
+      groupPoints.set(it.group_id, (groupPoints.get(it.group_id) ?? 0) + (it.points ?? 0));
+    }
     const totalPoints = items.reduce((t, it) => t + (it.points ?? 0), 0);
     for (const it of items) {
       if (weighted) {
         const gw = group.get(it.group_id as number)?.group_weight;
-        it.weight = gw ? gw / inGroup.get(it.group_id as number)! : null;
+        const gp = groupPoints.get(it.group_id as number)!;
+        it.weight = gw ? (gp > 0 ? (gw * (it.points ?? 0)) / gp : gw / inGroup.get(it.group_id as number)!) : null;
       } else if (totalPoints > 0 && it.points != null) {
         it.weight = (100 * it.points) / totalPoints;
         it.weight_is_fallback = true;

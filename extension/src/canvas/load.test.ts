@@ -59,9 +59,9 @@ describe("canvas loader", () => {
     expect(c).toMatchObject({ canvas_course_id: 1, course_code: "STAT 230", term: "2026W1", instructor: "Dr. Lee" });
     expect(c.modules).toEqual([{ id: 10, name: "Week 1", unlock_at: null }]);
     expect(c.items.map((i) => [i.item_id, i.type, i.weight, i.points, i.module_ids])).toEqual([
-      ["assignment:100", "assignment", 10, 50, [10]],
+      ["assignment:100", "assignment", (20 * 50) / 60, 50, [10]], // group weight 20 split by points (50 of 60)
       ["assignment:101", "midterm", 30, 100, []],
-      ["assignment:102", "assignment", 10, 10, []],
+      ["assignment:102", "assignment", (20 * 10) / 60, 10, []],
       ["quiz:300", "assignment", null, 5, [10]],
     ]);
     expect(subs[0]).toEqual({
@@ -188,6 +188,10 @@ describe("assignment groups", () => {
       [a(1, "H1", 1), a(2, "H2", 1), a(3, "H3", 1), a(4, "Final", 2)],
     );
     expect(items.map((i) => [i.weight, i.weight_is_fallback])).toEqual([[10, false], [10, false], [10, false], [40, false]]);
+  });
+  it("weighted groups: group_weight is split across the group's items by points", async () => {
+    const items = await runWith([{ id: 1, name: "Homework", group_weight: 30 }], [a(1, "H1", 1, 10), a(2, "H2", 1, 20)]);
+    expect(items.map((i) => i.weight)).toEqual([10, 20]);
   });
   it("unweighted groups: weight falls back to share of total points and is marked as a fallback", async () => {
     for (const gw of [0, null]) {
