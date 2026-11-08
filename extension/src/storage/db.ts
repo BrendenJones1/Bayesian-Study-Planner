@@ -63,6 +63,12 @@ export interface TimerMeta {
   first_use: string;
 }
 
+/** Singleton: the student's λ preset (planner/utility.ts). */
+export interface Settings {
+  id: "default";
+  lambda_preset: "grades" | "balanced" | "wellbeing";
+}
+
 export interface CptsCache {
   /** Singleton record. */
   id: "default";
@@ -83,6 +89,7 @@ export interface Schema {
   frozen_prediction: FrozenPrediction;
   coverage_override: CoverageOverride;
   timer_meta: TimerMeta;
+  settings: Settings;
 }
 export type StoreName = keyof Schema;
 
@@ -98,6 +105,7 @@ const KEY_PATHS: { [K in StoreName]: string } = {
   cpts_cache: "id",
   coverage_override: "item_id",
   timer_meta: "id",
+  settings: "id",
 };
 
 /**
@@ -127,6 +135,9 @@ export const MIGRATIONS: ((db: IDBDatabase, tx: IDBTransaction) => void)[] = [
   },
   (db) => {
     if (!db.objectStoreNames.contains("timer_meta")) db.createObjectStore("timer_meta", { keyPath: "id" });
+  },
+  (db) => {
+    if (!db.objectStoreNames.contains("settings")) db.createObjectStore("settings", { keyPath: "id" });
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
@@ -176,4 +187,5 @@ export const stores = (db: IDBDatabase) => ({
   cpts_cache: store(db, "cpts_cache"),
   coverage_override: store(db, "coverage_override"),
   timer_meta: store(db, "timer_meta"),
+  settings: store(db, "settings"),
 });
