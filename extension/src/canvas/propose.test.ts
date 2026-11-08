@@ -66,10 +66,28 @@ describe("proposeFromText", () => {
     const t2 = course({ start_at: "2027-01-05T00:00:00Z", end_at: "2027-04-20T00:00:00Z", syllabus: "The final exam is on September 10." });
     expect(proposeFromText(t2, new Date("2026-12-10T00:00:00Z"))).toEqual([]);
   });
+  it("with a keyword matching two items and no number, the date is ambiguous and nothing is proposed", () => {
+    expect(proposeFromText(course({ syllabus: "Quiz 3 is the week after the midterm on Oct 14." }), now)).toHaveLength(0);
+  });
   it("with several keywords, the date goes to the nearest one", () => {
-    const got = proposeFromText(course({ syllabus: "Quiz 3 is the week after the midterm on Oct 14." }), now);
-    expect(got).toHaveLength(0); // "midterm" matches two items and carries no number: ambiguous, so no proposal
     const one = course({ items: [item("Midterm"), item("Quiz 3")], syllabus: "Quiz 3 is the week after the midterm on Oct 14." });
     expect(proposeFromText(one, now)).toMatchObject([{ kind: "date", item_id: "Midterm", date: "2026-10-14" }]);
+  });
+  it("a calendar event suppresses a proposal only when its title equals the item name after normalising", () => {
+    const ev = (title: string) => [{ title, start_at: "2026-12-14T09:00:00Z", end_at: null }];
+    const syllabus = "The final exam is on December 12.";
+    expect(proposeFromText(course({ events: ev("Final Exam Review"), syllabus }), now)).toHaveLength(1);
+    expect(proposeFromText(course({ events: ev("Final exam"), syllabus }), now)).toHaveLength(0);
+    expect(proposeFromText(course({ events: ev("  FINAL   Exam! "), syllabus }), now)).toHaveLength(0);
+  });
+  it("month names match only as whole words: 'Marching 5' and 'Mayor 3' give no date", () => {
+    expect(proposeFromText(course({ syllabus: "The final exam is Marching 5." }), now)).toEqual([]);
+    expect(proposeFromText(course({ syllabus: "The final exam is Mayor 3." }), now)).toEqual([]);
+    expect(proposeFromText(course({ syllabus: "The final exam is on Sept 5." }), now)[0]).toMatchObject({ date: "2026-09-05" });
+  });
+  it("impossible dates such as Feb 31 are rejected, not proposed", () => {
+    expect(proposeFromText(course({ syllabus: "The final exam is on February 31." }), now)).toEqual([]);
+    expect(proposeFromText(course({ syllabus: "The final exam is on 2026-02-30." }), now)).toEqual([]);
+    expect(proposeFromText(course({ syllabus: "The final exam is on Feb 29, 2027." }), now)).toEqual([]);
   });
 });

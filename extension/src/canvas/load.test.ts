@@ -70,6 +70,22 @@ describe("canvas loader", () => {
     });
   });
 
+  it("start_at/end_at come from the course dates first, else the term dates, else are absent", async () => {
+    const key = COURSES;
+    const orig = fixtures[key];
+    const base = { id: 1, course_code: "STAT 230", syllabus_body: "", teachers: [] };
+    const window = async (c: object) => {
+      fixtures[key] = [{ ...base, ...c }];
+      const { courses } = await run();
+      return [courses[0].start_at ?? null, courses[0].end_at ?? null];
+    };
+    try {
+      expect(await window({ start_at: "2027-01-05T00:00:00Z", end_at: "2027-04-20T00:00:00Z", term: { name: "T", start_at: "2026-09-01T00:00:00Z", end_at: "2026-12-20T00:00:00Z" } })).toEqual(["2027-01-05T00:00:00Z", "2027-04-20T00:00:00Z"]);
+      expect(await window({ term: { name: "T", start_at: "2026-09-01T00:00:00Z", end_at: "2026-12-20T00:00:00Z" } })).toEqual(["2026-09-01T00:00:00Z", "2026-12-20T00:00:00Z"]);
+      expect(await window({ term: { name: "T" } })).toEqual([null, null]);
+    } finally { fixtures[key] = orig; }
+  });
+
   it("requests score statistics with assignments; stores min, lower quartile, median, upper quartile, max, mean when present", async () => {
     const urls: string[] = [];
     const fetchFn = (async (url: string) => {
