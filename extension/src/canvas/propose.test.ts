@@ -49,9 +49,27 @@ describe("proposeFromText", () => {
   it("text with no match yields nothing", () => {
     expect(proposeFromText(course({ syllabus: "Office hours are Tuesdays. Be kind.", announcements: [ann("Hi", "Welcome!")] }), now)).toEqual([]);
   });
-  it("parsing is pure: no fetch is called", () => {
+  it("parsing is pure: no fetch is called and the output is the expected proposal", () => {
     const f = globalThis.fetch;
     globalThis.fetch = (() => { throw new Error("network"); }) as typeof fetch;
-    try { proposeFromText(course({ syllabus: "Midterm 1 is October 25." }), now); } finally { globalThis.fetch = f; }
+    try {
+      expect(proposeFromText(course({ syllabus: "Midterm 1 is October 25." }), now)).toEqual([
+        { provisional: true, source: "syllabus", sentence: "Midterm 1 is October 25.", kind: "date", item_id: "Midterm 1", date: "2026-10-25" },
+      ]);
+    } finally { globalThis.fetch = f; }
+  });
+  it("a yearless date takes the year inside the course term window: Term 2 'February 10' run in December is next year", () => {
+    const t2 = course({ start_at: "2027-01-05T00:00:00Z", end_at: "2027-04-20T00:00:00Z", syllabus: "The final exam is on February 10." });
+    expect(proposeFromText(t2, new Date("2026-12-10T00:00:00Z"))[0]).toMatchObject({ kind: "date", item_id: "Final Exam", date: "2027-02-10" });
+  });
+  it("a yearless date that fits neither year in the window yields no date proposal", () => {
+    const t2 = course({ start_at: "2027-01-05T00:00:00Z", end_at: "2027-04-20T00:00:00Z", syllabus: "The final exam is on September 10." });
+    expect(proposeFromText(t2, new Date("2026-12-10T00:00:00Z"))).toEqual([]);
+  });
+  it("with several keywords, the date goes to the nearest one", () => {
+    const got = proposeFromText(course({ syllabus: "Quiz 3 is the week after the midterm on Oct 14." }), now);
+    expect(got).toHaveLength(0); // "midterm" matches two items and carries no number: ambiguous, so no proposal
+    const one = course({ items: [item("Midterm"), item("Quiz 3")], syllabus: "Quiz 3 is the week after the midterm on Oct 14." });
+    expect(proposeFromText(one, now)).toMatchObject([{ kind: "date", item_id: "Midterm", date: "2026-10-14" }]);
   });
 });

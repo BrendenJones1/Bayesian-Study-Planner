@@ -24,22 +24,50 @@ const ISO = /\b(\d{4})-(\d{2})-(\d{2})\b/;
 const RANGE = /\bmodules?\s+(\d+)\s*(?:-|–|—|to|through)\s*(\d+)\b/i;
 
 const pad = (n: number) => String(n).padStart(2, "0");
-function findDate(s: string, defaultYear: number): string | null {
+const SLACK = 14 * 86400000;
+type Found = { iso?: string; m: number; d: number; yr?: string; start: number; end: number };
+function findDate(s: string): Found | null {
   const iso = ISO.exec(s);
-  if (iso) return iso[0];
+  if (iso) return { iso: iso[0], m: 0, d: 0, start: iso.index, end: iso.index + iso[0].length };
   const md = MD.exec(s);
   const dm = md ? null : DM.exec(s);
-  const [mon, day, yr] = md ? [md[1], md[2], md[3]] : dm ? [dm[2], dm[1], dm[3]] : [];
-  if (!mon) return null;
-  const m = MONTHS.indexOf(mon.toLowerCase()) + 1;
+  const x = md ?? dm;
+  if (!x) return null;
+  const [mon, day, yr] = md ? [md[1], md[2], md[3]] : [dm![2], dm![1], dm![3]];
   const d = Number(day);
-  return d >= 1 && d <= 31 ? `${yr ?? defaultYear}-${pad(m)}-${pad(d)}` : null;
+  if (d < 1 || d > 31) return null;
+  return { m: MONTHS.indexOf(mon.toLowerCase()) + 1, d, yr, start: x.index, end: x.index + x[0].length };
+}
+
+/** Yearless dates take the year that lands in the course window (±14 days); none fits -> null. No window: the default year. */
+function toIso(f: Found, defaultYear: number, win: [number, number] | null): string | null {
+  if (f.iso) return f.iso;
+  if (f.yr) return `${f.yr}-${pad(f.m)}-${pad(f.d)}`;
+  if (!win) return `${defaultYear}-${pad(f.m)}-${pad(f.d)}`;
+  const years = [new Date(win[0]).getUTCFullYear(), new Date(win[1]).getUTCFullYear()];
+  const y = years.find((y) => {
+    const t = Date.UTC(y, f.m - 1, f.d);
+    return t >= win[0] - SLACK && t <= win[1] + SLACK;
+  });
+  return y === undefined ? null : `${y}-${pad(f.m)}-${pad(f.d)}`;
+}
+
+/** The keyword match closest in characters to the span [from, to]; ties go to the earlier one. */
+function nearestKeyword(s: string, from: number, to: number) {
+  let best: { kw: (typeof KEYWORDS)[number]; end: number; dist: number } | null = null;
+  for (const kw of KEYWORDS) {
+    for (const m of s.matchAll(new RegExp(kw[0], "gi"))) {
+      const dist = Math.max(m.index - to, from - (m.index + m[0].length), 0);
+      if (!best || dist < best.dist) best = { kw, end: m.index + m[0].length, dist };
+    }
+  }
+  return best;
 }
 
 /**
  * Pure text search (no network, no model). Items with a Canvas due date, or named by a calendar
  * event, are skipped: those sources take precedence over text matches.
- * shortcut: a keyword matching several items (e.g. two midterms) is split by the number in the sentence; if still ambiguous, no proposal.
+ * Known simplification: a keyword matching several items (e.g. two midterms) is split by the number after it; if still ambiguous, no proposal.
  */
 export function proposeFromText(course: CourseCache, now: Date = new Date()): Proposal[] {
   const texts: { source: Proposal["source"]; text: string; year: number }[] = [];
@@ -48,23 +76,27 @@ export function proposeFromText(course: CourseCache, now: Date = new Date()): Pr
     const y = a.posted_at ? new Date(a.posted_at).getFullYear() : now.getFullYear();
     texts.push({ source: "announcement", text: `${a.title}. ${a.message}`, year: y });
   }
+  const win: [number, number] | null =
+    course.start_at && course.end_at ? [Date.parse(course.start_at), Date.parse(course.end_at)] : null;
   const eventTitles = (course.events ?? []).filter((e) => e.start_at).map((e) => e.title.toLowerCase());
   const out: Proposal[] = [];
   for (const { source, text, year } of texts) {
     for (const sentence of text.split(/(?<=[.!?])\s+(?=[A-Z])|\n/).map((s) => s.trim()).filter(Boolean)) {
-      const kw = KEYWORDS.find(([k]) => k.test(sentence));
-      if (!kw) continue;
-      let cands = course.items.filter((i) => kw[1].test(i.name));
-      const num = /\b(?:midterm|exam|quiz)\s*#?(\d)\b/i.exec(sentence)?.[1];
+      const found = findDate(sentence);
+      const range = RANGE.exec(sentence);
+      const anchor = found ?? (range && { start: range.index, end: range.index + range[0].length });
+      const near = nearestKeyword(sentence, anchor?.start ?? 0, anchor?.end ?? 0);
+      if (!near) continue;
+      let cands = course.items.filter((i) => near.kw[1].test(i.name));
+      const num = /^\w*\s*#?(\d)\b/.exec(sentence.slice(near.end))?.[1];
       if (cands.length > 1 && num) cands = cands.filter((i) => new RegExp(`\\b${num}\\b`).test(i.name));
       const item = cands.length === 1 ? cands[0] : null;
-      const range = RANGE.exec(sentence);
       if (range) {
         const [a, b] = [Number(range[1]), Number(range[2])];
         const modules = Array.from({ length: Math.max(0, b - a + 1) }, (_, k) => a + k);
         if (modules.length) out.push({ provisional: true, source, sentence, kind: "coverage", item_id: item?.item_id ?? null, modules });
       }
-      const date = findDate(sentence, year);
+      const date = found && toIso(found, year, win);
       if (date && item && !item.due_at && !eventTitles.some((t) => t.includes(item.name.toLowerCase()))) {
         out.push({ provisional: true, source, sentence, kind: "date", item_id: item.item_id, date });
       }

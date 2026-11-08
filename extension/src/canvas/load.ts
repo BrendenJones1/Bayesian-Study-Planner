@@ -48,6 +48,9 @@ export interface CourseCache {
   canvas_course_id: number;
   course_code: string;
   term: string | null;
+  /** Course window (course dates, else term dates); used to place yearless dates in text. */
+  start_at?: string | null;
+  end_at?: string | null;
   instructor: string | null;
   /** null = Canvas gave us none (unavailable), distinct from an empty list/text. */
   events: { title: string; start_at: string | null; end_at: string | null }[] | null;
@@ -209,6 +212,8 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       canvas_course_id: id,
       course_code: c.course_code,
       term: c.term?.name ?? null,
+      start_at: c.start_at ?? c.term?.start_at ?? null,
+      end_at: c.end_at ?? c.term?.end_at ?? null,
       instructor: c.teachers?.[0]?.display_name ?? null,
       events: events && events.map((e) => ({ title: e.title, start_at: e.start_at ?? null, end_at: e.end_at ?? null })),
       syllabus: typeof c.syllabus_body === "string" ? htmlToText(c.syllabus_body) : null,
