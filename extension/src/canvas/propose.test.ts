@@ -49,6 +49,9 @@ describe("proposeFromText", () => {
   it("text with no match yields nothing", () => {
     expect(proposeFromText(course({ syllabus: "Office hours are Tuesdays. Be kind.", announcements: [ann("Hi", "Welcome!")] }), now)).toEqual([]);
   });
+  it("'examples' is not the exam keyword", () => {
+    expect(proposeFromText(course({ syllabus: "Practice examples are posted Oct 3." }), now)).toEqual([]);
+  });
   it("parsing is pure: no fetch is called and the output is the expected proposal", () => {
     const f = globalThis.fetch;
     globalThis.fetch = (() => { throw new Error("network"); }) as typeof fetch;

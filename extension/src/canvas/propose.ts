@@ -13,7 +13,7 @@ export type Proposal = {
 
 const KEYWORDS: [RegExp, RegExp][] = [
   [/midterm/i, /midterm/i],
-  [/\bfinal\b|\bexam/i, /final|exam/i], // item names for "final" and "exam" overlap
+  [/\bfinal\b|\bexams?\b/i, /final|exam/i], // item names for "final" and "exam" overlap
   [/quiz/i, /quiz/i],
 ];
 const MONTHS = "jan feb mar apr may jun jul aug sep oct nov dec".split(" ");
