@@ -25,12 +25,13 @@ const older = (a: string, b: string) => {
 /** GET cpts.json, cache it with its version, and fall back to the cache with a message on any failure. */
 export async function loadCpts(
   db: IDBDatabase,
-  opts: { fetchFn?: typeof fetch; minVersion?: string } = {},
+  opts: { fetchFn?: typeof fetch; minVersion?: string; bundled?: Cpts } = {},
 ): Promise<CptsResult> {
   const cache = stores(db).cpts_cache;
   const doFetch = opts.fetchFn ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
   const min = opts.minVersion ?? MIN_MODEL_VERSION;
-  const cached = (await cache.get("default"))?.data ?? null;
+  // The bundled copy only stands in when nothing is cached (first install, before Pages is live).
+  const cached = (await cache.get("default"))?.data ?? opts.bundled ?? null;
   const fail = (message: string): CptsResult => ({ cpts: cached, message });
   let data: Cpts;
   try {
