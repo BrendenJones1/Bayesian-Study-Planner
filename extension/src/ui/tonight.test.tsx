@@ -100,6 +100,24 @@ describe("popup: tonight's plan", () => {
     expect(r.cpts?.model_version).toBe("2.9.0");
   });
 
+  it("a published file at an older version loses to the newer bundled one", async () => {
+    const old = { ...bundled, model_version: "2.0.0" };
+    const db = await openDb(`tonight-${n++}`);
+    const r = await loadOnOpen(db, { canvasFetch: vi.fn(async () => new Response("[]")) as unknown as typeof fetch, fetchFn: vi.fn(async (u: unknown) => (u === CPTS_URL ? new Response(JSON.stringify(old)) : new Response("", { status: 404 }))) as unknown as typeof fetch, bundled });
+    expect(r.cpts?.model_version).toBe(bundled.model_version);
+    expect(bundled.model_version).not.toBe("2.0.0");
+  });
+
+  it("a course with no history and no pooled_medium (older file) shows 'No grade data for this course yet.'", async () => {
+    const old = JSON.parse(JSON.stringify(bundled));
+    delete old.tables.grade_map.pooled_medium;
+    old.model_version = "9.0.0"; // newer than the bundled copy, so it is the one used
+    const fetchOld = vi.fn(async (u: unknown) => (u === CPTS_URL ? new Response(JSON.stringify(old)) : new Response("", { status: 404 }))) as unknown as typeof fetch;
+    await setup([course(1, "ZZZZ 999", [item("final", "exam", 5)])], fetchOld);
+    await screen.findByText("No grade data for this course yet.");
+    expect(screen.queryByText(/of students like you/)).toBeNull();
+  });
+
   it("a course with no exam shows no card", async () => {
     await setup([course(1, "ANTH 100", [item("hw", "assignment", 3)])], down);
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());

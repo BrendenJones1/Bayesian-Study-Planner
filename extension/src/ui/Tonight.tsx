@@ -59,9 +59,10 @@ export function Tonight({
     if (!exam || !cpts) return null;
     const data: CourseData = { ...c, submissions: submissions.filter((s) => c.items.some((i) => i.item_id === s.item_id)), firstUse };
     const target = targets[c.canvas_course_id] ?? DEFAULT_TARGET;
-    return { target, q: gradeQuery(cpts, data, exam, sessions, today, target), weak: gradeMapFor(cpts, c.course_code).weak };
+    const gm = gradeMapFor(cpts, c.course_code);
+    return { target, weak: !!gm?.weak, q: gm ? gradeQuery(cpts, data, exam, sessions, today, target) : null };
   });
-  const rows = queried.flatMap((x) => (x ? [x] : []));
+  const rows = queried.flatMap((x) => (x?.q ? [{ ...x, q: x.q }] : []));
   // One stress term for the day: S(h) for h = 0..floor(H). The plan stays within H hours.
   const plan =
     cpts && rows.length
@@ -96,6 +97,7 @@ export function Tonight({
         const r = queried[i];
         if (!r) return <div key={c.canvas_course_id}><h3>{c.course_code}</h3><p>Tables not loaded yet.</p></div>;
         const { target, q, weak } = r;
+        if (!q) return <div key={c.canvas_course_id}><h3>{c.course_code}</h3><p>No grade data for this course yet.</p></div>;
         const chosen = plan[k++];
         return (
           <div key={c.canvas_course_id}>

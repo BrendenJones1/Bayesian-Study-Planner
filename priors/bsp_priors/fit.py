@@ -26,7 +26,7 @@ from bsp_priors.ingest_oulad import (
 from bsp_priors.ingest_ubcgrades import BINS, _p_in_decile, difficulty, read_csv
 
 ALPHA = 1.0
-MODEL_VERSION = "2.0.0"
+MODEL_VERSION = "2.1.0"  # 2.1.0 added grade_map.pooled_medium
 TABLES = Path(__file__).resolve().parents[1] / "tables"
 DECILES = [str(d) for d in range(1, 11)]
 WEIGHTS = ["<=15%", ">15%"]
@@ -97,6 +97,7 @@ def grade_map_table(bins: list[dict]) -> dict:
         for year, dist in years.items():
             for b, n in dist.items():
                 pooled[difficulty(avgs[(course, year)])][b] += n
+    medium = [d for c, ys in by_year.items() for y, d in ys.items() if difficulty(avgs[(c, y)]) == "Medium"]
     courses = {}
     for course, years in by_year.items():
         dists = list(years.values())
@@ -110,9 +111,11 @@ def grade_map_table(bins: list[dict]) -> dict:
     return {"parents": {"final_standing": DECILES, "course": sorted(courses)}, "targets": TARGETS,
             "states": "P(grade >= target); courses[course][target] has one value per decile 1..10",
             "courses": courses,
-            # The Medium group's pooled table: stands in for a course with no history (the extension flags it weak).
+            # Stands in for a course with no history (the extension flags it weak): the same per-year decile
+            # slices as a course's own map, averaged over every Medium-difficulty course-year, unsmoothed.
             "pooled_medium": {
-                str(t): [min(1.0, _p_in_decile(pooled["Medium"], t, k)) for k in range(1, 11)] for t in TARGETS
+                str(t): [min(1.0, sum(_p_in_decile(d, t, k) for d in medium) / len(medium)) for k in range(1, 11)]
+                for t in TARGETS
             }}
 
 

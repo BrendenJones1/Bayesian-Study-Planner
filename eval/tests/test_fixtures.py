@@ -30,4 +30,5 @@ def test_criterion_4_fixtures_cover_the_required_cases():
     assert any(n.startswith("hidden class statistics") for n in names)
     assert {q["action"] for q in FX["queries"]} == {"Intense", "Light", "Rest"}
     assert all({"50", "90"} <= set(q["p_grade"]) for q in FX["queries"])
-    assert len(FX["queries"]) == 21
+    assert len(FX["queries"]) == 24
+    assert any(q["course"] == "NOHIST 999" for q in FX["queries"])  # pooled_medium path

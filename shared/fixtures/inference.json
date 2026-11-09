@@ -1,6 +1,6 @@
 {
  "cpts": "priors/tables/cpts.json",
- "model_version": "2.0.0",
+ "model_version": "2.1.0",
  "queries": [
   {
    "name": "full evidence / Intense",
@@ -668,6 +668,102 @@
     "80": 0.8534765415334928,
     "85": 0.5744524588749309,
     "90": 0.10813642883508424
+   },
+   "e_stress_next": 0.5384063899003481
+  },
+  {
+   "name": "course with no history (pooled Medium grade map) / Intense",
+   "course": "NOHIST 999",
+   "evidence": {
+    "M1": "High",
+    "M2": "Med",
+    "M3": "Med",
+    "D1": "Hard",
+    "D2": "Med",
+    "D3": "Med",
+    "Timeliness": "On time",
+    "DaysLeft": "3-7",
+    "GradedSoFar": 25,
+    "ItemWeight": ">15%",
+    "LoadToday": "Med",
+    "LoadTomorrow": "High"
+   },
+   "action": "Intense",
+   "p_grade": {
+    "50": 0.9938094451605453,
+    "55": 0.9904031072023182,
+    "60": 0.9845493366242846,
+    "64": 0.9760370727247017,
+    "68": 0.9632690626534272,
+    "72": 0.9388546415673283,
+    "76": 0.8764586334282929,
+    "80": 0.6989582780343936,
+    "85": 0.28288828115578346,
+    "90": 0.06577597104787411
+   },
+   "e_stress_next": 0.5384063899003481
+  },
+  {
+   "name": "course with no history (pooled Medium grade map) / Light",
+   "course": "NOHIST 999",
+   "evidence": {
+    "M1": "High",
+    "M2": "Med",
+    "M3": "Med",
+    "D1": "Hard",
+    "D2": "Med",
+    "D3": "Med",
+    "Timeliness": "On time",
+    "DaysLeft": "3-7",
+    "GradedSoFar": 25,
+    "ItemWeight": ">15%",
+    "LoadToday": "Med",
+    "LoadTomorrow": "High"
+   },
+   "action": "Light",
+   "p_grade": {
+    "50": 0.9938267305525883,
+    "55": 0.9904304688648398,
+    "60": 0.9845870786952516,
+    "64": 0.9760759845647095,
+    "68": 0.9632508989978377,
+    "72": 0.9384007010115507,
+    "76": 0.8734109131331708,
+    "80": 0.688790325352902,
+    "85": 0.27264814411905525,
+    "90": 0.06321097625617894
+   },
+   "e_stress_next": 0.5384063899003481
+  },
+  {
+   "name": "course with no history (pooled Medium grade map) / Rest",
+   "course": "NOHIST 999",
+   "evidence": {
+    "M1": "High",
+    "M2": "Med",
+    "M3": "Med",
+    "D1": "Hard",
+    "D2": "Med",
+    "D3": "Med",
+    "Timeliness": "On time",
+    "DaysLeft": "3-7",
+    "GradedSoFar": 25,
+    "ItemWeight": ">15%",
+    "LoadToday": "Med",
+    "LoadTomorrow": "High"
+   },
+   "action": "Rest",
+   "p_grade": {
+    "50": 0.9938267305525883,
+    "55": 0.9904304688648398,
+    "60": 0.9845870786952516,
+    "64": 0.9760759845647095,
+    "68": 0.9632508989978377,
+    "72": 0.9384007010115507,
+    "76": 0.8734109131331708,
+    "80": 0.688790325352902,
+    "85": 0.27264814411905525,
+    "90": 0.06321097625617894
    },
    "e_stress_next": 0.5384063899003481
   }

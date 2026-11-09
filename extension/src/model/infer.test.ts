@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { infer, TARGETS } from "./infer";
+import { gradeMapFor, infer, TARGETS } from "./infer";
 
 const root = new URL("../../../", import.meta.url);
 const fx = JSON.parse(readFileSync(new URL("shared/fixtures/inference.json", root), "utf8"));
@@ -31,8 +31,22 @@ describe("exact inference matches the pgmpy fixtures", () => {
     expect(infer(cpts, q.course, q.evidence, q.action).p_grade).toEqual(infer(cpts, q.course, q.evidence, q.action).p_grade);
   });
 
-  it("criterion 5: 21 queries (7 courses, 3 actions) run in under 1 second", () => {
-    expect(fx.queries).toHaveLength(21);
+  it("fixtures include a course with no history, answered from pooled_medium", () => {
+    const q = fx.queries.find((x: { course: string }) => x.course === "NOHIST 999");
+    expect(cpts.tables.grade_map.courses["NOHIST 999"]).toBeUndefined();
+    expect(gradeMapFor(cpts, "NOHIST 999")?.weak).toBe(true);
+    expect(q).toBeTruthy();
+  });
+
+  it("gradeMapFor returns null when pooled_medium is missing", () => {
+    const old = JSON.parse(JSON.stringify(cpts));
+    delete old.tables.grade_map.pooled_medium;
+    expect(gradeMapFor(old, "NOHIST 999")).toBeNull();
+    expect(() => infer(old, "NOHIST 999", {}, "Rest")).toThrow(/No grade data/);
+  });
+
+  it("criterion 5: 24 queries (8 courses, 3 actions) run in under 1 second", () => {
+    expect(fx.queries).toHaveLength(24);
     const t0 = performance.now();
     for (const q of fx.queries) infer(cpts, q.course, q.evidence, q.action);
     expect(performance.now() - t0).toBeLessThan(1000);

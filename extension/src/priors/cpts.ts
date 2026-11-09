@@ -36,7 +36,9 @@ export async function loadCpts(
   const min = opts.minVersion ?? MIN_MODEL_VERSION;
   // The bundled copy only stands in when nothing is cached (first install, before Pages is live).
   const saved = (await cache.get("default"))?.data;
-  const cached = saved ?? opts.bundled ?? null;
+  // The bundled copy also wins over an older saved or published file (until Pages is rebuilt).
+  const b = opts.bundled;
+  const cached = (saved && !(b && older(saved.model_version, b.model_version)) ? saved : b) ?? null;
   const fail = (message: string): CptsResult =>
     !saved && opts.bundled ? { cpts: cached, note: "Using built-in tables; will update when online." } : { cpts: cached, message };
   let data: Cpts;
@@ -51,6 +53,7 @@ export async function loadCpts(
     return fail("The latest tables are corrupt; using the last saved ones.");
   if (older(data.model_version, min))
     return fail(`The latest tables (version ${data.model_version}) are older than this extension needs (${min}); using the last saved ones.`);
+  if (b && older(data.model_version, b.model_version)) return { cpts: b };
   await cache.put({ id: "default", version: data.model_version, data });
   return { cpts: data };
 }

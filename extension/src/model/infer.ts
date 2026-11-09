@@ -26,14 +26,16 @@ export type GradeMap = Record<string, number[]>;
  * pooled table (priors/ builds it in), so the only other case is a course with no history: the pooled Medium
  * table, flagged weak ("based on similar courses").
  */
-export const gradeMapFor = (c: Tables, course: string): { table: GradeMap; weak: boolean } => {
+export const gradeMapFor = (c: Tables, course: string): { table: GradeMap; weak: boolean } | null => {
   const own = c.tables.grade_map.courses[course];
-  return own ? { table: own, weak: false } : { table: c.tables.grade_map.pooled_medium, weak: true };
+  if (own) return { table: own, weak: false };
+  const pooled = c.tables.grade_map.pooled_medium; // absent in files older than 2.1.0
+  return pooled ? { table: pooled, weak: true } : null;
 };
 
 export interface Tables {
   tables: Record<string, Table> & {
-    grade_map: { courses: Record<string, GradeMap>; pooled_medium: GradeMap };
+    grade_map: { courses: Record<string, GradeMap>; pooled_medium?: GradeMap };
   };
   hand_built: Record<string, Table>;
 }
@@ -141,7 +143,8 @@ export function infer(
   for (const [k, v] of Object.entries(evidence)) ev[k] = String(v);
   ev.Action = action;
   const finalStanding = posterior(nodes, "FinalStanding", ev);
-  const gm = gradeMapFor(c, course).table;
+  const gm = gradeMapFor(c, course)?.table;
+  if (!gm) throw new Error(`No grade data for ${course}`);
   const p_grade: Record<number, number> = {};
   for (const t of targets) p_grade[t] = finalStanding.reduce((a, p, i) => a + p * gm[String(t)][i], 0);
   return { p_grade, e_stress_next: expectedStress(nodes, ev) };

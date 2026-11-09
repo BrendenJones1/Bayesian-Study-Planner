@@ -74,7 +74,7 @@ def build_network(cpts: dict, course: str, target: int) -> DiscreteBayesianNetwo
                            [3, 10, len(OFFSETS), len(weights), len(CHECKPOINTS)],
                            state_names={"FinalStanding": DECILES, "Perf": LEVELS, "ExamStanding": DECILES,
                                         "PersonalOffset": OFFSETS, "ItemWeight": weights, "GradedSoFar": CHECKPOINTS}))
-    p = t["grade_map"]["courses"][course][str(target)]  # P(grade >= target | final decile)
+    p = (t["grade_map"]["courses"].get(course) or t["grade_map"]["pooled_medium"])[str(target)]  # P(grade >= target | final decile)
     cpds.append(TabularCPD("Grade", 2, [p, [1 - x for x in p]], ["FinalStanding"], [10],
                            state_names={"Grade": [True, False], "FinalStanding": DECILES}))
     net = DiscreteBayesianNetwork()
