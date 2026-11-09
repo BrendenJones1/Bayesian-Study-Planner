@@ -10,6 +10,8 @@ export interface Loaded {
   cpts: Cpts | null;
   /** One message per failed step, shown as-is. */
   errors: string[];
+  /** Neutral messages (not errors), shown as-is. */
+  notes: string[];
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -40,5 +42,11 @@ export async function loadOnOpen(
     errors.push(msg(e));
   }
   if (r.message) errors.push(r.message);
-  return { courses: await s.course_cache.getAll(), submissions: await s.submission_history.getAll(), cpts: r.cpts, errors };
+  return {
+    courses: await s.course_cache.getAll(),
+    submissions: await s.submission_history.getAll(),
+    cpts: r.cpts,
+    errors,
+    notes: r.note ? [r.note] : [],
+  };
 }

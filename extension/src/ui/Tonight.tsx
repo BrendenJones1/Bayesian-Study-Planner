@@ -1,22 +1,21 @@
 import type { CourseCache, Item, Submission } from "../canvas/load";
-import { LAMBDA_PRESETS, type LambdaPreset } from "../model/constants";
+import { ACTION_HOURS, LAMBDA_PRESETS, type LambdaPreset } from "../model/constants";
 import { localDay } from "../model/encode";
-import { TARGETS } from "../model/infer";
-import { ACTIONS, gradeQuery, type Action, type CourseData } from "../model/query";
+import { gradeMapFor, TARGETS } from "../model/infer";
+import { ACTIONS, gradeQuery, type CourseData } from "../model/query";
 import { deadlineCount, stressCurve } from "../model/stress";
 import { availableHours } from "../planner/availability";
-import { bestAction } from "../planner/utility";
+import { bestPlan } from "../planner/plan";
 import type { Cpts } from "../priors/cpts";
 import type { Availability, StudySession } from "../storage/db";
 
 export const DEFAULT_TARGET = 72;
 const HORIZON_DAYS = 14;
-const HOURS: Record<Action, number> = { Intense: 5, Light: 1, Rest: 0 }; // design-v2, Decision
 const DAY = 86_400_000;
 const PRESETS: Record<LambdaPreset, string> = { grades: "Grades first", balanced: "Balanced", wellbeing: "Wellbeing first" };
 const isExam = (t: string) => t === "exam" || t === "midterm";
 
-/** Tonight's chance of reaching the target under each action, and the recommended action, per course with an exam in the next 14 days. All numbers come from model/ and planner/. */
+/** Tonight's plan: per course with an exam in the next 14 days, the chance of reaching the target under each action and the action chosen by one plan for the day. All numbers come from model/ and planner/. */
 export function Tonight({
   courses,
   submissions,
@@ -56,6 +55,23 @@ export function Tonight({
     return [{ c, exam }];
   });
   if (!cards.length) return null;
+  const queried = cards.map(({ c, exam }) => {
+    if (!exam || !cpts) return null;
+    const data: CourseData = { ...c, submissions: submissions.filter((s) => c.items.some((i) => i.item_id === s.item_id)), firstUse };
+    const target = targets[c.canvas_course_id] ?? DEFAULT_TARGET;
+    return { target, q: gradeQuery(cpts, data, exam, sessions, today, target), weak: gradeMapFor(cpts, c.course_code).weak };
+  });
+  const rows = queried.flatMap((x) => (x ? [x] : []));
+  // One stress term for the day: S(h) for h = 0..floor(H). The plan stays within H hours.
+  const plan =
+    cpts && rows.length
+      ? bestPlan(
+          rows.map((r) => ({ Intense: r.q.Intense.p, Light: r.q.Light.p, Rest: r.q.Rest.p })),
+          stressCurve(cpts, { loadToday: deadlineCount(items, today), loadTomorrow: deadlineCount(items, tomorrow), H: Math.floor(hours) }),
+          LAMBDA_PRESETS[preset],
+        ).plan
+      : [];
+  let k = 0;
   return (
     <section>
       <h2>Tonight</h2>
@@ -68,7 +84,8 @@ export function Tonight({
         </select>
       </label>
       <p>Hours available today: {hours.toFixed(1)}</p>
-      {cards.map(({ c, exam }) => {
+      {plan.length > 0 && <p>Plan total: {plan.reduce((s, a) => s + ACTION_HOURS[a], 0)} h</p>}
+      {cards.map(({ c, exam }, i) => {
         if (!exam)
           return (
             <div key={c.canvas_course_id}>
@@ -76,26 +93,10 @@ export function Tonight({
               <p>Exam date not confirmed. <a href="#undated">Confirm the exam date</a></p>
             </div>
           );
-        if (!cpts) return <div key={c.canvas_course_id}><h3>{c.course_code}</h3><p>Tables not loaded yet.</p></div>;
-        // A course the published grade history does not cover cannot be queried; say so rather than fail the popup.
-        if (!(c.course_code in (cpts.tables as { grade_map: { courses: object } }).grade_map.courses))
-          return <div key={c.canvas_course_id}><h3>{c.course_code}</h3><p>No grade history for this course yet.</p></div>;
-        const target = targets[c.canvas_course_id] ?? DEFAULT_TARGET;
-        const data: CourseData = {
-          ...c,
-          submissions: submissions.filter((s) => c.items.some((i) => i.item_id === s.item_id)),
-          firstUse,
-        };
-        const q = gradeQuery(cpts, data, exam, sessions, today, target);
-        const curve = stressCurve(cpts as never, { loadToday: deadlineCount(items, today), loadTomorrow: deadlineCount(items, tomorrow), H: HOURS.Intense });
-        const p = {} as Record<Action, number>;
-        const stress = {} as Record<Action, number>;
-        for (const a of ACTIONS) {
-          // Intense is out of the ranking when under 5 h are free; its chance is still shown.
-          p[a] = a === "Intense" && hours < HOURS.Intense ? -Infinity : q[a].p;
-          stress[a] = curve[HOURS[a]];
-        }
-        const best = bestAction(p, stress, preset);
+        const r = queried[i];
+        if (!r) return <div key={c.canvas_course_id}><h3>{c.course_code}</h3><p>Tables not loaded yet.</p></div>;
+        const { target, q, weak } = r;
+        const chosen = plan[k++];
         return (
           <div key={c.canvas_course_id}>
             <h3>{c.course_code}</h3>
@@ -110,6 +111,7 @@ export function Tonight({
                 {TARGETS.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </label>
+            {weak && <p>Based on similar courses.</p>}
             <ul>
               {ACTIONS.map((a) => (
                 <li key={a}>
@@ -118,7 +120,7 @@ export function Tonight({
                 </li>
               ))}
             </ul>
-            <p>Recommended tonight: <strong>{best}</strong></p>
+            <p>Plan tonight: <strong>{chosen}</strong></p>
           </div>
         );
       })}

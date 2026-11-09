@@ -8,6 +8,9 @@ import { loadOnOpen } from "./open";
 import { downloadJson, exportData } from "../storage/export";
 
 const root = createRoot(document.getElementById("root")!);
+// A failed read shows a message instead of a blank popup.
+const fail = (e: unknown) =>
+  root.render(<p role="alert">Could not open your saved data: {e instanceof Error ? e.message : String(e)}</p>);
 void openDb().then(async (db) => {
   const courseCache = stores(db).course_cache;
   const sessions = stores(db).study_session;
@@ -17,7 +20,7 @@ void openDb().then(async (db) => {
     await sessions.put(x);
     if (!(await meta.get("default"))) await meta.put({ id: "default", first_use: localDay(x.started_at) });
   };
-  const bundled = bundledCpts as unknown as Cpts;
+  const bundled = bundledCpts as unknown as Cpts; // JSON import boundary; priors/ writes it in Cpts' shape
   const cached = (await stores(db).cpts_cache.get("default"))?.data ?? bundled;
   root.render(
     <App
@@ -36,4 +39,4 @@ void openDb().then(async (db) => {
       onExport={async () => downloadJson(await exportData(db))}
     />,
   );
-});
+}).catch(fail);

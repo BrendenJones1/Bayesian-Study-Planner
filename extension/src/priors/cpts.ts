@@ -1,3 +1,5 @@
+import type { Tables } from "../model/infer";
+import type { LoadCuts } from "../model/stress";
 import { stores } from "../storage/db";
 
 /** Published by the priors job to GitHub Pages (design-v2, Learning the CPTs, step 4). */
@@ -5,15 +7,17 @@ export const CPTS_URL = "https://brendenjones1.github.io/Bayesian-Study-Planner/
 /** Oldest cpts.json model_version this extension understands. */
 export const MIN_MODEL_VERSION = "2.0.0";
 
-export interface Cpts {
+export interface Cpts extends Tables {
   model_version: string;
   built_at: string;
-  tables: Record<string, unknown>;
+  cut_points: { load_deadlines_next_3_days: LoadCuts };
 }
 export interface CptsResult {
   cpts: Cpts | null;
   /** Set when the fetch failed or the file was rejected; cpts then holds the last cached tables. */
   message?: string;
+  /** Set instead of `message` when the fetch failed but the bundled tables stand in: not an error. */
+  note?: string;
 }
 
 const older = (a: string, b: string) => {
@@ -31,8 +35,10 @@ export async function loadCpts(
   const doFetch = opts.fetchFn ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
   const min = opts.minVersion ?? MIN_MODEL_VERSION;
   // The bundled copy only stands in when nothing is cached (first install, before Pages is live).
-  const cached = (await cache.get("default"))?.data ?? opts.bundled ?? null;
-  const fail = (message: string): CptsResult => ({ cpts: cached, message });
+  const saved = (await cache.get("default"))?.data;
+  const cached = saved ?? opts.bundled ?? null;
+  const fail = (message: string): CptsResult =>
+    !saved && opts.bundled ? { cpts: cached, note: "Using built-in tables; will update when online." } : { cpts: cached, message };
   let data: Cpts;
   try {
     const res = await doFetch(CPTS_URL, { method: "GET" });

@@ -109,7 +109,11 @@ def grade_map_table(bins: list[dict]) -> dict:
         }
     return {"parents": {"final_standing": DECILES, "course": sorted(courses)}, "targets": TARGETS,
             "states": "P(grade >= target); courses[course][target] has one value per decile 1..10",
-            "courses": courses}
+            "courses": courses,
+            # The Medium group's pooled table: stands in for a course with no history (the extension flags it weak).
+            "pooled_medium": {
+                str(t): [min(1.0, _p_in_decile(pooled["Medium"], t, k)) for k in range(1, 11)] for t in TARGETS
+            }}
 
 
 def build(split: str = "train", alpha: float = ALPHA, tables: Path = TABLES, built_at: str | None = None) -> dict:

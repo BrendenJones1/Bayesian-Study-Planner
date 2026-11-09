@@ -49,6 +49,7 @@ export function App({
   const [prefs, setPrefs] = useState(settings);
   const [step, setStep] = useState<string | null>(load ? "Loading…" : null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [notes, setNotes] = useState<string[]>([]);
   useEffect(() => {
     if (!load) return;
     load(setStep)
@@ -57,6 +58,7 @@ export function App({
         setSubmissions(r.submissions);
         setCpts(r.cpts);
         setErrors(r.errors);
+        setNotes(r.notes);
       }, (e) => setErrors([e instanceof Error ? e.message : String(e)]))
       .finally(() => setStep(null));
   }, [load]);
@@ -74,6 +76,7 @@ export function App({
       {failed && <p role="alert">Could not save the change.</p>}
       {step && <p role="status">{step}</p>}
       {errors.map((m) => <p role="alert" key={m}>{m}</p>)}
+      {notes.map((m) => <p role="note" key={m}>{m}</p>)}
       <Tonight
         courses={courses}
         submissions={submissions}

@@ -18,8 +18,23 @@ interface Table {
   states: string[];
   values: Record<string, number[]>;
 }
+/** P(grade >= target | final decile): target (as text) to one value per decile 1..10. */
+export type GradeMap = Record<string, number[]>;
+
+/**
+ * The course's own grade map. A course with under 2 years of history already carries its difficulty group's
+ * pooled table (priors/ builds it in), so the only other case is a course with no history: the pooled Medium
+ * table, flagged weak ("based on similar courses").
+ */
+export const gradeMapFor = (c: Tables, course: string): { table: GradeMap; weak: boolean } => {
+  const own = c.tables.grade_map.courses[course];
+  return own ? { table: own, weak: false } : { table: c.tables.grade_map.pooled_medium, weak: true };
+};
+
 export interface Tables {
-  tables: Record<string, Table> & { grade_map: { courses: Record<string, Record<string, number[]>> } };
+  tables: Record<string, Table> & {
+    grade_map: { courses: Record<string, GradeMap>; pooled_medium: GradeMap };
+  };
   hand_built: Record<string, Table>;
 }
 export interface Answer {
@@ -126,7 +141,7 @@ export function infer(
   for (const [k, v] of Object.entries(evidence)) ev[k] = String(v);
   ev.Action = action;
   const finalStanding = posterior(nodes, "FinalStanding", ev);
-  const gm = c.tables.grade_map.courses[course];
+  const gm = gradeMapFor(c, course).table;
   const p_grade: Record<number, number> = {};
   for (const t of targets) p_grade[t] = finalStanding.reduce((a, p, i) => a + p * gm[String(t)][i], 0);
   return { p_grade, e_stress_next: expectedStress(nodes, ev) };

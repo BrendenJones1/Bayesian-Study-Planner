@@ -8,6 +8,11 @@ import { loadOnOpen } from "./open";
 import { CPTS_URL, type Cpts } from "../priors/cpts";
 import { openDb, stores, type Availability } from "../storage/db";
 import type { CourseCache, Item } from "../canvas/load";
+import { ACTION_HOURS, LAMBDA_PRESETS } from "../model/constants";
+import { localDay } from "../model/encode";
+import { gradeQuery, type Action } from "../model/query";
+import { deadlineCount, stressCurve } from "../model/stress";
+import { bestPlan } from "../planner/plan";
 
 const bundled = bundledJson as unknown as Cpts;
 afterEach(cleanup);
@@ -67,7 +72,9 @@ describe("popup: tonight's plan", () => {
     );
     expect(screen.getByRole("status").textContent).toMatch(/Loading/); // progress
     expect(screen.getByText("ANTH 100")).toBeTruthy(); // cached, while loading
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/Could not load the latest tables/));
+    // The bundled tables stand in, so this is a neutral note, not an error.
+    await waitFor(() => expect(screen.getByRole("note").textContent).toMatch(/Using built-in tables; will update when online/));
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(order).toEqual(["canvas", "cpts"]);
     expect(screen.queryByRole("status")).toBeNull();
   });
@@ -82,7 +89,7 @@ describe("popup: tonight's plan", () => {
 
   it("first install with the fetch failing uses the bundled tables", async () => {
     await setup(exam5, down);
-    await waitFor(() => screen.getByText(/Recommended tonight/));
+    await waitFor(() => screen.getByText(/Plan tonight/));
     expect(screen.getAllByText(/of students like you reached the target/)).toHaveLength(3);
   });
 
@@ -96,14 +103,14 @@ describe("popup: tonight's plan", () => {
   it("a course with no exam shows no card", async () => {
     await setup([course(1, "ANTH 100", [item("hw", "assignment", 3)])], down);
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
-    expect(screen.queryByText(/Recommended tonight/)).toBeNull();
+    expect(screen.queryByText(/Plan tonight/)).toBeNull();
     expect(screen.queryByText("Tonight")).toBeNull();
   });
 
   it("an exam more than 14 days away gets no card", async () => {
     await setup([course(1, "ANTH 100", [item("final", "exam", 20)])], down);
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
-    expect(screen.queryByText(/Recommended tonight/)).toBeNull();
+    expect(screen.queryByText(/Plan tonight/)).toBeNull();
   });
 
   it("a card shows the exam date, a target picker limited to TARGETS defaulting to 72, and a bound reason when there is one", async () => {
@@ -125,7 +132,7 @@ describe("popup: tonight's plan", () => {
 
   it("a preset change changes the recommendation immediately", async () => {
     await setup([flip], down, { preset: "grades", scored: ["hw1", "hw2"] });
-    await screen.findByText(/Recommended tonight/);
+    await screen.findByText(/Plan tonight/);
     expect(recommended()).toBe("Intense");
     fireEvent.change(screen.getByLabelText("Preset"), { target: { value: "wellbeing" } });
     expect(recommended()).toBe("Rest");
@@ -134,7 +141,7 @@ describe("popup: tonight's plan", () => {
   it("shows today's available hours, and Intense is not recommended under 5", async () => {
     const short: Availability = { ...free, weekly_defaults: free.weekly_defaults.map((d) => ({ ...d, minutes: 120 })) };
     await setup([flip], down, { availability: short, preset: "grades", scored: ["hw1", "hw2"] });
-    await screen.findByText(/Recommended tonight/);
+    await screen.findByText(/Plan tonight/);
     expect(screen.getByText("Hours available today: 2.0")).toBeTruthy();
     expect(recommended()).not.toBe("Intense");
   });
@@ -149,9 +156,43 @@ describe("popup: tonight's plan", () => {
 
   it("copy uses population wording and never 'you will'", async () => {
     await setup(exam5, down);
-    await screen.findByText(/Recommended tonight/);
+    await screen.findByText(/Plan tonight/);
     const text = document.body.textContent ?? "";
     expect(text).toMatch(/students like you/);
     expect(text).not.toMatch(/you will/i);
+  });
+
+  it("a bound reason renders on the card", async () => {
+    const locked = course(1, "ANTH 100", [w(item("hw1", "assignment", -20), 40), w(item("hw2", "assignment", -10), 40), w(item("final", "exam", 5), 20)]);
+    await setup([locked], down, { scored: ["hw1", "hw2"] }); // 60% on 80% of the grade: 90 is out of reach
+    fireEvent.change(await screen.findByLabelText("Target for ANTH 100"), { target: { value: "90" } });
+    expect(screen.getAllByText(/\(out of reach\)/)).toHaveLength(3);
+  });
+
+  it("a course absent from the published history is based on similar courses", async () => {
+    await setup([course(1, "ZZZZ 999", [item("final", "exam", 5)])], down);
+    await screen.findByText(/Plan tonight/);
+    expect(screen.getByText("Based on similar courses.")).toBeTruthy();
+    expect(screen.getAllByText(/of students like you reached the target/)).toHaveLength(3);
+  });
+
+  it("3 courses and 6 h: the plan never exceeds 6 h and matches bestPlan on the same inputs", async () => {
+    const six: Availability = { ...free, weekly_defaults: free.weekly_defaults.map((d) => ({ ...d, minutes: 360 })) };
+    const cs = ["ANTH 100", "ANTH 103", "ANTH 170"].map((code, i) => course(i + 1, code, [item(`final${i}`, "exam", 5), item(`due${i}`, "assignment", 1)]));
+    await setup(cs, down, { availability: six, preset: "grades" });
+    await screen.findByText(/Plan total/);
+    const shown = Array.from(document.querySelectorAll("strong")).map((e) => e.textContent);
+    const total = shown.reduce((s, a) => s + ACTION_HOURS[a as Action], 0);
+    expect(total).toBeLessThanOrEqual(6);
+    expect(screen.getByText(`Plan total: ${total} h`)).toBeTruthy();
+    const today = localDay(new Date().toISOString());
+    const tomorrow = localDay(new Date(Date.now() + DAY).toISOString());
+    const items = cs.flatMap((c) => c.items);
+    const p = cs.map((c) => {
+      const q = gradeQuery(bundled, { ...c, submissions: [] }, c.items[0], [], today, 72);
+      return { Intense: q.Intense.p, Light: q.Light.p, Rest: q.Rest.p };
+    });
+    const S = stressCurve(bundled, { loadToday: deadlineCount(items, today), loadTomorrow: deadlineCount(items, tomorrow), H: 6 });
+    expect(shown).toEqual(bestPlan(p, S, LAMBDA_PRESETS.grades).plan);
   });
 });
