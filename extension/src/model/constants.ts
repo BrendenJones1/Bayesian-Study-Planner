@@ -15,3 +15,6 @@ export const THETA = 0.2;
  */
 export const LAMBDA_PRESETS = { grades: 0.1, balanced: 0.4, wellbeing: 1.0 } as const;
 export type LambdaPreset = keyof typeof LAMBDA_PRESETS;
+
+/** Study hours per action (design-v2, Decision): Intense 5 h, Light 1 h, Rest 0. Assumed, not fitted. */
+export const ACTION_HOURS = { Intense: 5, Light: 1, Rest: 0 } as const;
