@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ACTIONS, type Action } from "../model/query";
-import { bestPlan, HOURS } from "./plan";
+import { ACTION_HOURS as HOURS } from "../model/constants";
+import { bestPlan } from "./plan";
 
 let seed = 7;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -65,5 +66,26 @@ describe("plan search", () => {
     const t0 = performance.now();
     bestPlan(p, stress, 0.4);
     expect(performance.now() - t0).toBeLessThan(100);
+  });
+
+  it("throws RangeError on an empty stress table or a P outside [0, 1]", () => {
+    const ok = { Intense: 0.7, Light: 0.6, Rest: 0.5 };
+    expect(() => bestPlan([ok], [], 0.4)).toThrow(RangeError);
+    expect(() => bestPlan([{ ...ok, Light: 1.1 }], [0, 0], 0.4)).toThrow(RangeError);
+    expect(() => bestPlan([{ ...ok, Rest: -0.1 }], [0, 0], 0.4)).toThrow(RangeError);
+    expect(() => bestPlan([{ ...ok, Rest: NaN }], [0, 0], 0.4)).toThrow(RangeError);
+  });
+
+  it("with H = 0 (stress table of length 1) returns the all-Rest plan", () => {
+    const c = { Intense: 0.9, Light: 0.8, Rest: 0.1 };
+    expect(bestPlan([c, c], [0.3], 0.4).plan).toEqual(["Rest", "Rest"]);
+  });
+
+  it("among equal-utility plans prefers fewer hours, then earlier courses resting first", () => {
+    const same = { Intense: 0.5, Light: 0.5, Rest: 0.5 };
+    expect(bestPlan([same, same], [0, 0, 0, 0, 0, 0], 0).plan).toEqual(["Rest", "Rest"]);
+    // Light+Rest and Rest+Light tie on utility and hours; the plan resting first wins.
+    const l = { Intense: 0, Light: 0.5, Rest: 0 };
+    expect(bestPlan([l, l], [0, 0], 0).plan).toEqual(["Rest", "Light"]);
   });
 });
