@@ -5,6 +5,7 @@ import { confirmDueAt } from "../canvas/undated";
 import type { StudySession } from "../storage/db";
 import { deleteSession, editSession } from "../timer/sessions";
 import { Sessions } from "./Sessions";
+import { AddExam } from "./AddExam";
 import { Undated } from "./Undated";
 import { Timer } from "./Timer";
 
@@ -41,6 +42,15 @@ export function App({
           confirmDueAt(courses, c, i, d, save).then((next) => {
             ok();
             setCourses(next);
+          }, fail)
+        }
+      />
+      <AddExam
+        courses={courses}
+        onChange={(c) =>
+          save(c).then(() => {
+            ok();
+            setCourses(courses.map((x) => (x.canvas_course_id === c.canvas_course_id ? c : x)));
           }, fail)
         }
       />

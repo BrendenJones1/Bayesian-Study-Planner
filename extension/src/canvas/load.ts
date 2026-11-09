@@ -1,4 +1,5 @@
 import type { createCanvasClient } from "./client";
+import { mergeAddedExams } from "./addExam";
 
 type Client = ReturnType<typeof createCanvasClient>;
 
@@ -18,6 +19,10 @@ export interface Item {
   points: number | null;
   module_ids: number[];
   class_stats: ClassStats | null;
+  /** Exam the student added by hand (canvas/addExam.ts); survives Canvas reloads until a matching Canvas item appears. */
+  added_by_you?: boolean;
+  /** Module ids the student chose for this exam; wins over the computed default (coverage.ts). */
+  covered_modules?: number[];
 }
 /** Canvas score_statistics; a field Canvas omits is null, never 0. */
 export interface ClassStats {
@@ -206,7 +211,12 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
 
     // Canvas still has no date for these; keep the one the student confirmed.
     const old = await stores.getCourse?.(id);
-    for (const it of items) it.due_at ??= old?.items.find((o) => o.item_id === it.item_id)?.due_at ?? null;
+    for (const it of items) {
+      const prev = old?.items.find((o) => o.item_id === it.item_id);
+      it.due_at ??= prev?.due_at ?? null;
+      if (prev?.covered_modules) it.covered_modules = prev.covered_modules;
+    }
+    items.push(...mergeAddedExams(items, old?.items ?? []));
 
     await stores.putCourse({
       canvas_course_id: id,
