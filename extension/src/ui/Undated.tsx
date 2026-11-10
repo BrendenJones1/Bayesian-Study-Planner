@@ -14,7 +14,7 @@ export function Undated({
   const rows = undatedItems(courses);
   if (!rows.length) return null;
   return (
-    <section>
+    <section id="undated">
       <h2>Missing due dates</h2>
       <ul>
         {rows.map(({ course, item }) => {
