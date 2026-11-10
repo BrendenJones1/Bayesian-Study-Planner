@@ -43,10 +43,13 @@ export interface Availability {
   /** Daily maximum M in hours. Default 6; at least 5 so Intense stays possible. */
   max_hours?: number;
 }
+/** The baseline's exam-standing prediction, frozen once when the item's due date passes; never modified. */
 export interface FrozenPrediction {
   item_id: string;
-  p_at_least_target: number;
-  interval: [number, number];
+  /** P(decile 1..10), index 0 = decile 1. */
+  deciles: number[];
+  /** Most likely decile (1..10); the offset residual reads this. */
+  most_likely: number;
   created_at: string;
 }
 
@@ -140,6 +143,10 @@ export const MIGRATIONS: ((db: IDBDatabase, tx: IDBTransaction) => void)[] = [
   },
   (db) => {
     if (!db.objectStoreNames.contains("settings")) db.createObjectStore("settings", { keyPath: "id" });
+  },
+  // frozen_prediction changes shape (p_at_least_target/interval -> deciles/most_likely). shortcut: nothing ever wrote the old shape, so old rows are dropped.
+  (_db, tx) => {
+    tx.objectStore("frozen_prediction").clear();
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
