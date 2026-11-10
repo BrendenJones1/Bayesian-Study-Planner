@@ -3,47 +3,67 @@ import { endOfDay } from "./undated";
 import type { CourseCache, Item } from "./load";
 import type { Proposal } from "./propose";
 
+export type Kind = "exam" | "quiz" | "project";
+
 export interface ExamInput {
   title: string;
   /** Local date, YYYY-MM-DD. */
   day: string;
   /** Module ids; omitted = the modules released since the previous exam (coverage.ts). */
   modules?: number[];
-  /** Percent of the course grade; used only when no group matches. */
+  /** Percent of the course grade, set by the student and kept on edit. Omitted = the group's split (manual % only if no group). */
   weight?: number | null;
+  /** Omitted = from the title. Only exam and project get study blocks. */
+  kind?: Kind;
 }
 
-const examType = (title: string): Item["type"] => (/midterm/i.test(title) ? "midterm" : "exam");
+const KIND_RE: Record<Kind, RegExp> = { exam: /midterm|exam|final/i, quiz: /quiz/i, project: /project|paper|essay/i };
+/** shortcut: the kind comes from title words, then the group of that kind; a group named "Tests" is not found, so use the select. */
+export const defaultKind = (title: string): Kind => (KIND_RE.quiz.test(title) ? "quiz" : KIND_RE.project.test(title) ? "project" : "exam");
+export const kindOf = (i: Item): Kind => (i.type === "quiz" ? "quiz" : i.type === "assignment" && i.study_candidate ? "project" : "exam");
 
-/** The group already holding this exam type (group name decides type, as in the loader) and its total weight, or null. */
-function matchingGroup(course: CourseCache, type: Item["type"]) {
-  const inGroup = course.items.filter((i) => i.type === type && i.group_id != null && !i.weight_is_fallback && (i.weight ?? 0) > 0);
-  if (!inGroup.length) return null;
-  const { group_id, group_name } = inGroup[0];
-  const total = inGroup.filter((i) => i.group_id === group_id).reduce((a, i) => a + (i.weight ?? 0), 0);
-  return { group_id, group_name, total, n: course.items.filter((i) => i.group_id === group_id).length };
+/** The weighted assignment group of this kind (a midterm title prefers a midterm group), or null. */
+function matchingGroup(course: CourseCache, kind: Kind, title: string) {
+  const groups = new Map<number, string>();
+  for (const i of course.items) if (i.group_id != null && i.group_name && !i.weight_is_fallback) groups.set(i.group_id, i.group_name);
+  const mid = (n: string) => +(/midterm/i.test(n) === /midterm/i.test(title));
+  const found = [...groups].filter(([, n]) => KIND_RE[kind].test(n)).sort(([, a], [, b]) => mid(b) - mid(a))[0];
+  return found ? { id: found[0], name: found[1] } : null;
 }
 
-/** Default weight: the matching group's weight split evenly across its items, the new one included. Null = ask for a manual %. */
-export function defaultWeight(course: CourseCache, title: string): number | null {
-  const g = matchingGroup(course, examType(title));
-  return g && g.total / (g.n + 1);
+/** The group's total weight: the cached group_weight, else what its items hold now. */
+const groupTotal = (course: CourseCache, gid: number) =>
+  course.group_weights?.[gid] ?? course.items.filter((i) => i.group_id === gid).reduce((a, i) => a + (i.weight ?? 0), 0);
+
+/**
+ * Splits a group's weight across ALL its items so they sum to it: by points when every item has points, otherwise
+ * equally. An item with a weight the student set keeps it; the rest share what is left. Returns new objects.
+ */
+export function splitGroup(items: Item[], gid: number, total: number): Item[] {
+  const inGroup = items.filter((i) => i.group_id === gid);
+  const free = inGroup.filter((i) => !i.weight_set);
+  const left = Math.max(0, total - inGroup.filter((i) => i.weight_set).reduce((a, i) => a + (i.weight ?? 0), 0));
+  const pts = free.reduce((a, i) => a + (i.points ?? 0), 0);
+  const byPoints = free.every((i) => (i.points ?? 0) > 0);
+  return items.map((i) => (free.includes(i) ? { ...i, weight: byPoints ? (left * i.points!) / pts : left / free.length } : i));
 }
 
-/** Returns the course with the exam added (item_id "user:<id>"), tagged added_by_you. */
+/** Returns the course with the exam added (item_id "user:<id>"), tagged added_by_you; its group's weight is re-split. */
 export function addExam(course: CourseCache, input: ExamInput, id: string = crypto.randomUUID()): CourseCache {
-  const type = examType(input.title);
-  const g = matchingGroup(course, type);
+  const kind = input.kind ?? defaultKind(input.title);
+  const g = matchingGroup(course, kind, input.title);
+  const total = g ? groupTotal(course, g.id) : 0;
   const draft: Item = {
     item_id: `user:${id}`,
     name: input.title,
-    type,
+    type: kind === "quiz" ? "quiz" : kind === "project" ? "assignment" : /midterm/i.test(`${g?.name} ${input.title}`) ? "midterm" : "exam",
     due_at: endOfDay(input.day),
-    group_id: g?.group_id ?? null,
-    group_name: g?.group_name ?? null,
-    weight: defaultWeight(course, input.title) ?? input.weight ?? null,
+    group_id: g?.id ?? null,
+    group_name: g?.name ?? null,
+    weight: input.weight ?? null,
+    weight_set: input.weight != null,
     weight_is_fallback: false,
-    study_candidate: true,
+    study_candidate: kind !== "quiz",
     points: null,
     module_ids: [],
     class_stats: null,
@@ -51,49 +71,65 @@ export function addExam(course: CourseCache, input: ExamInput, id: string = cryp
   };
   const next = { ...course, items: [...course.items, draft] };
   draft.covered_modules = input.modules ?? coverage(next, draft.item_id);
-  return next;
+  return g ? { ...next, items: splitGroup(next.items, g.id, total) } : next;
 }
 
-/** Edits an exam the student added, in place; Canvas items are left alone. */
+/** The group's default weight for a new exam, or null when no group matches (ask for a manual %). */
+export function defaultWeight(course: CourseCache, title: string, kind: Kind = defaultKind(title)): number | null {
+  return matchingGroup(course, kind, title) && addExam(course, { title, day: "2000-01-01", kind }, "probe").items.at(-1)!.weight;
+}
+
+export function deleteExam(course: CourseCache, itemId: string): CourseCache {
+  const old = course.items.find((i) => i.item_id === itemId && i.added_by_you);
+  if (!old) return course;
+  const total = old.group_id == null ? 0 : groupTotal(course, old.group_id);
+  const items = course.items.filter((i) => i !== old);
+  return { ...course, items: old.group_id == null ? items : splitGroup(items, old.group_id, total) };
+}
+
+/** Edits an exam the student added; Canvas items are left alone. A weight the student set is kept. */
 export function editExam(course: CourseCache, itemId: string, input: ExamInput): CourseCache {
   const old = course.items.find((i) => i.item_id === itemId && i.added_by_you);
   if (!old) return course;
-  const without = { ...course, items: course.items.filter((i) => i !== old) };
-  const edited = addExam(without, input, itemId.slice("user:".length)).items.at(-1)!;
-  return { ...course, items: course.items.map((i) => (i === old ? edited : i)) };
+  const weight = input.weight ?? (old.weight_set ? old.weight : undefined);
+  return addExam(deleteExam(course, itemId), { ...input, weight }, itemId.slice("user:".length));
 }
-
-export const deleteExam = (course: CourseCache, itemId: string): CourseCache => ({
-  ...course,
-  items: course.items.filter((i) => !(i.item_id === itemId && i.added_by_you)),
-});
 
 const norm = (t: string) => t.toLowerCase().replace(/\s+/g, " ").trim();
 const day = (iso: string) => new Date(iso).toDateString();
+const isExam = (i: Item) => i.type === "exam" || i.type === "midterm";
 
 /**
- * Called by the loader. A student-added exam that now matches a Canvas exam (same title, or same local day)
- * is merged into the Canvas item (which keeps the student's modules and a date Canvas lacks).
- * Returns the added exams still unmatched, so there is never a duplicate.
+ * Called by the loader, per course. A student-added exam merges into a Canvas item with the same normalized title,
+ * or on the same local day when both are exams. The Canvas item keeps the student's modules and a date it lacks.
+ * Returns new objects (inputs untouched): the Canvas items, then the added exams still unmatched, so no duplicate.
  */
 export function mergeAddedExams(canvasItems: Item[], old: Item[]): Item[] {
-  return old.filter((u) => {
-    if (!u.added_by_you) return false;
-    const m = canvasItems.find(
+  const out = [...canvasItems];
+  const left: Item[] = [];
+  for (const u of old.filter((o) => o.added_by_you)) {
+    const k = out.findIndex(
       (c) =>
-        (c.type === "exam" || c.type === "midterm") &&
-        (norm(c.name) === norm(u.name) || (c.due_at && u.due_at && day(c.due_at) === day(u.due_at))),
+        !c.added_by_you &&
+        (norm(c.name) === norm(u.name) || (isExam(c) && isExam(u) && !!c.due_at && !!u.due_at && day(c.due_at) === day(u.due_at))),
     );
-    if (!m) return true;
-    m.covered_modules ??= u.covered_modules;
-    m.due_at ??= u.due_at;
-    return false;
-  });
+    if (k < 0) left.push(u);
+    else out[k] = { ...out[k], covered_modules: out[k].covered_modules ?? u.covered_modules, due_at: out[k].due_at ?? u.due_at };
+  }
+  return [...out, ...left];
 }
 
-/** Pre-fills the form from a syllabus/announcement proposal. Module numbers in text map to Canvas module order (1 = first). */
+/** The loader's last step: re-split the groups holding exams the student added, so each group sums to its weight. */
+export function resplitAdded(items: Item[], groupWeights: Record<number, number>): Item[] {
+  const gids = new Set(items.flatMap((i) => (i.added_by_you && i.group_id != null ? [i.group_id] : [])));
+  return [...gids].reduce((acc, gid) => (groupWeights[gid] ? splitGroup(acc, gid, groupWeights[gid]) : acc), items);
+}
+
+/** Pre-fills the form from a syllabus/announcement proposal. */
 export function prefill(course: CourseCache, p: Proposal): Partial<ExamInput> {
   const title = course.items.find((i) => i.item_id === p.item_id)?.name;
   if (p.kind === "date") return { title, day: p.date };
-  return { title, modules: p.modules.flatMap((n) => course.modules[n - 1]?.id ?? []) };
+  // A module whose name holds the number ("Module 4", "Week 4") first; Canvas order only if none does.
+  const find = (n: number) => (course.modules.find((m) => new RegExp(`(?<!\\d)${n}(?!\\d)`).test(m.name)) ?? course.modules[n - 1])?.id;
+  return { title, modules: p.modules.flatMap((n) => find(n) ?? []) };
 }

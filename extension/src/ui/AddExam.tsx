@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CourseCache } from "../canvas/load";
 import { proposeFromText } from "../canvas/propose";
-import { addExam, defaultWeight, deleteExam, editExam, prefill, type ExamInput } from "../canvas/addExam";
+import { addExam, defaultKind, defaultWeight, deleteExam, editExam, kindOf, prefill, type ExamInput, type Kind } from "../canvas/addExam";
 import { coverage, isProvisional } from "../canvas/coverage";
 
 /** "Add exam" form, the exams added by you (edit, delete), and syllabus proposals that open the form pre-filled. */
@@ -12,8 +12,9 @@ export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChang
   const course = courses.find((c) => c.canvas_course_id === courseId);
   if (!course) return null;
   const title = form.title ?? "";
-  const auto = title ? defaultWeight(course, title) : null;
-  const probe = form.day ? addExam(course, { title: title || "Exam", day: form.day }, "probe") : null;
+  const kind = form.kind ?? defaultKind(title);
+  const auto = title ? defaultWeight(course, title, kind) : null;
+  const probe = form.day ? addExam(course, { title: title || "Exam", day: form.day, kind }, "probe") : null;
   const modules = form.modules ?? (probe ? coverage(probe, "user:probe") : []);
   const proposals = proposeFromText(course);
   const done = (next: CourseCache) => {
@@ -29,6 +30,11 @@ export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChang
       </select>
       <input aria-label="Exam title" value={title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
       <input type="date" aria-label="Exam date" value={form.day ?? ""} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+      <select aria-label="Type" value={kind} onChange={(e) => setForm({ ...form, kind: e.target.value as Kind })}>
+        <option value="exam">Exam</option>
+        <option value="quiz">Quiz</option>
+        <option value="project">Project</option>
+      </select>
       <fieldset>
         <legend>Covered modules</legend>
         {course.modules.map((m) => (
@@ -48,7 +54,7 @@ export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChang
       <button
         disabled={!title || !form.day}
         onClick={() => {
-          const input = { title, day: form.day!, modules, weight: form.weight };
+          const input = { title, day: form.day!, modules, weight: form.weight, kind };
           done(editing ? editExam(course, editing, input) : addExam(course, input));
         }}
       >
@@ -69,7 +75,7 @@ export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChang
             {i.added_by_you && (
               <>
                 {" "}
-                <button onClick={() => (setEditing(i.item_id), setForm({ title: i.name, day: i.due_at ? new Date(i.due_at).toLocaleDateString("en-CA") : "", modules: i.covered_modules, weight: i.weight }))}>Edit</button>
+                <button onClick={() => (setEditing(i.item_id), setForm({ title: i.name, day: i.due_at ? new Date(i.due_at).toLocaleDateString("en-CA") : "", modules: i.covered_modules, weight: i.weight_set ? i.weight : undefined, kind: kindOf(i) }))}>Edit</button>
                 <button onClick={() => onChange(deleteExam(course, i.item_id))}>Delete</button>
               </>
             )}
