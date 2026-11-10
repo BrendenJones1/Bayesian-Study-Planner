@@ -71,7 +71,7 @@ describe("popup: tonight's plan", () => {
       />,
     );
     expect(screen.getByRole("status").textContent).toMatch(/Loading/); // progress
-    expect(screen.getByText("ANTH 100")).toBeTruthy(); // cached, while loading
+    expect(screen.getByRole("heading", { name: "ANTH 100" })).toBeTruthy(); // cached, while loading
     // The bundled tables stand in, so this is a neutral note, not an error.
     await waitFor(() => expect(screen.getByRole("note").textContent).toMatch(/Using built-in tables; will update when online/));
     expect(screen.queryByRole("alert")).toBeNull();
