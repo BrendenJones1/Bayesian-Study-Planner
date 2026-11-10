@@ -25,6 +25,7 @@ CASES = [  # (name, course, evidence)
     ("50% checkpoint, heavy item", "PSYO 111", FULL | {"GradedSoFar": 50, "DaysLeft": "1-2", "LoadToday": "High"}),
     ("weak student, hard exam", "CHEM 111", FULL | {"M1": "Low", "M2": "Low", "M3": "Med", "D1": "Hard", "D3": "Hard"}),
     ("strong student, easy exam", "ENGL 112", FULL | {"M1": "High", "M2": "High", "M3": "High", "D1": "Easy", "D2": "Easy", "D3": "Easy"}),
+    ("course with no history (pooled Medium grade map)", "NOHIST 999", FULL),
 ]
 STRESS_CASES = [  # (name, load counts in deadlines, H, optional theta and tapped stress level)
     ("no tap, quiet days", {"load_today": 0, "load_tomorrow": 0, "hours": 8}),

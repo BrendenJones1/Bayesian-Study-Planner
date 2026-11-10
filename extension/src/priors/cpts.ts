@@ -1,3 +1,5 @@
+import type { Tables } from "../model/infer";
+import type { LoadCuts } from "../model/stress";
 import { stores } from "../storage/db";
 
 /** Published by the priors job to GitHub Pages (design-v2, Learning the CPTs, step 4). */
@@ -5,15 +7,17 @@ export const CPTS_URL = "https://brendenjones1.github.io/Bayesian-Study-Planner/
 /** Oldest cpts.json model_version this extension understands. */
 export const MIN_MODEL_VERSION = "2.0.0";
 
-export interface Cpts {
+export interface Cpts extends Tables {
   model_version: string;
   built_at: string;
-  tables: Record<string, unknown>;
+  cut_points: { load_deadlines_next_3_days: LoadCuts };
 }
 export interface CptsResult {
   cpts: Cpts | null;
   /** Set when the fetch failed or the file was rejected; cpts then holds the last cached tables. */
   message?: string;
+  /** Set instead of `message` when the fetch failed but the bundled tables stand in: not an error. */
+  note?: string;
 }
 
 const older = (a: string, b: string) => {
@@ -25,13 +29,18 @@ const older = (a: string, b: string) => {
 /** GET cpts.json, cache it with its version, and fall back to the cache with a message on any failure. */
 export async function loadCpts(
   db: IDBDatabase,
-  opts: { fetchFn?: typeof fetch; minVersion?: string } = {},
+  opts: { fetchFn?: typeof fetch; minVersion?: string; bundled?: Cpts } = {},
 ): Promise<CptsResult> {
   const cache = stores(db).cpts_cache;
   const doFetch = opts.fetchFn ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
   const min = opts.minVersion ?? MIN_MODEL_VERSION;
-  const cached = (await cache.get("default"))?.data ?? null;
-  const fail = (message: string): CptsResult => ({ cpts: cached, message });
+  // The bundled copy only stands in when nothing is cached (first install, before Pages is live).
+  const saved = (await cache.get("default"))?.data;
+  // The bundled copy also wins over an older saved or published file (until Pages is rebuilt).
+  const b = opts.bundled;
+  const cached = (saved && !(b && older(saved.model_version, b.model_version)) ? saved : b) ?? null;
+  const fail = (message: string): CptsResult =>
+    !saved && opts.bundled ? { cpts: cached, note: "Using built-in tables; will update when online." } : { cpts: cached, message };
   let data: Cpts;
   try {
     const res = await doFetch(CPTS_URL, { method: "GET" });
@@ -44,6 +53,7 @@ export async function loadCpts(
     return fail("The latest tables are corrupt; using the last saved ones.");
   if (older(data.model_version, min))
     return fail(`The latest tables (version ${data.model_version}) are older than this extension needs (${min}); using the last saved ones.`);
+  if (b && older(data.model_version, b.model_version)) return { cpts: b };
   await cache.put({ id: "default", version: data.model_version, data });
   return { cpts: data };
 }

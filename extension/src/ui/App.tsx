@@ -1,4 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { LambdaPreset } from "../model/constants";
+import type { Cpts } from "../priors/cpts";
+import type { Availability, Settings } from "../storage/db";
+import type { Loaded } from "./open";
+import { Tonight } from "./Tonight";
 import type { CourseCache, Submission } from "../canvas/load";
 import { Grades } from "./Grades";
 import { confirmDueAt } from "../canvas/undated";
@@ -11,7 +16,13 @@ import { Timer } from "./Timer";
 
 export function App({
   initial = [],
-  submissions = [],
+  submissions: initialSubmissions = [],
+  load,
+  initialCpts = null,
+  availability = { id: "default", weekly_defaults: [], busy_blocks: [] },
+  settings = { id: "default", lambda_preset: "balanced" },
+  saveSettings = async () => {},
+  firstUse,
   save,
   initialSessions = [],
   putSession = async () => {},
@@ -19,6 +30,13 @@ export function App({
   onExport,
 }: {
   onExport?: () => Promise<void>;
+  /** Runs on open: loadCanvas, then loadCpts. Cached data shows meanwhile. */
+  load?: (progress: (step: string) => void) => Promise<Loaded>;
+  initialCpts?: Cpts | null;
+  availability?: Availability;
+  settings?: Settings;
+  saveSettings?: (s: Settings) => Promise<void>;
+  firstUse?: string | null;
   initial?: CourseCache[];
   submissions?: Submission[];
   save: (c: CourseCache) => Promise<void>;
@@ -27,14 +45,51 @@ export function App({
   removeSession?: (id: string) => Promise<unknown>;
 }) {
   const [courses, setCourses] = useState(initial);
+  const [submissions, setSubmissions] = useState(initialSubmissions);
+  const [cpts, setCpts] = useState(initialCpts);
+  const [prefs, setPrefs] = useState(settings);
+  const [step, setStep] = useState<string | null>(load ? "Loading…" : null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [notes, setNotes] = useState<string[]>([]);
+  useEffect(() => {
+    if (!load) return;
+    load(setStep)
+      .then((r) => {
+        setCourses(r.courses);
+        setSubmissions(r.submissions);
+        setCpts(r.cpts);
+        setErrors(r.errors);
+        setNotes(r.notes);
+      }, (e) => setErrors([e instanceof Error ? e.message : String(e)]))
+      .finally(() => setStep(null));
+  }, [load]);
   const [sessions, setSessions] = useState(initialSessions);
   const [failed, setFailed] = useState(false);
   const ok = () => setFailed(false);
   const fail = () => setFailed(true);
+  const savePrefs = (next: Settings) => {
+    setPrefs(next);
+    saveSettings(next).then(ok, fail);
+  };
   return (
     <>
       <h1>Bayesian Study Planner</h1>
       {failed && <p role="alert">Could not save the change.</p>}
+      {step && <p role="status">{step}</p>}
+      {errors.map((m) => <p role="alert" key={m}>{m}</p>)}
+      {notes.map((m) => <p role="note" key={m}>{m}</p>)}
+      <Tonight
+        courses={courses}
+        submissions={submissions}
+        sessions={sessions}
+        cpts={cpts}
+        availability={availability}
+        firstUse={firstUse}
+        preset={prefs.lambda_preset}
+        targets={prefs.targets ?? {}}
+        onTarget={(id, t) => savePrefs({ ...prefs, targets: { ...prefs.targets, [id]: t } })}
+        onPreset={(p: LambdaPreset) => savePrefs({ ...prefs, lambda_preset: p })}
+      />
       <Timer courses={courses} save={putSession} />
       <Undated
         courses={courses}

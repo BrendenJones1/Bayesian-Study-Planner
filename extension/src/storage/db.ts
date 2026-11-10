@@ -67,6 +67,8 @@ export interface TimerMeta {
 export interface Settings {
   id: "default";
   lambda_preset: "grades" | "balanced" | "wellbeing";
+  /** Grade target per course (canvas_course_id); absent means the default, 72. */
+  targets?: Record<number, number>;
 }
 
 export interface CptsCache {
