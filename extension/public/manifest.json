@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bayesian Study Planner",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Local-first study planner for UBC Canvas.",
   "action": { "default_popup": "popup.html" },
   "permissions": ["idle"],
