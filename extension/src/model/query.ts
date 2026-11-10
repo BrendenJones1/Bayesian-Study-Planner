@@ -3,8 +3,8 @@
  * and Prediction). Pure. The UI calls these; it never builds evidence or recomputes the probability.
  */
 import type { CourseCache, Item, Submission } from "../canvas/load";
-import { coverage } from "../canvas/coverage";
-import type { StudySession } from "../storage/db";
+import { coverage, isProvisional } from "../canvas/coverage";
+import type { CoverageOverride, StudySession } from "../storage/db";
 import { courseStanding, gradedSoFarState, inferBounded, itemWeightState, type Bound } from "./bounds";
 import { encodeDaysLeft, encodeStudy, encodeTimeliness, localDay, type CutPoints } from "./encode";
 import { conceptDifficulty, mastery, perf, type Difficulty, type GradeBin, type Graded, type Level } from "./evidence";
@@ -34,6 +34,7 @@ export interface CourseData extends CourseCache {
   submissions: Submission[];
   firstUse?: string | null;
   history?: GradeBin[];
+  coverage_override?: CoverageOverride;
 }
 
 /**
@@ -75,7 +76,7 @@ export function buildEvidence(
 
   const coursePerf = perf(graded, history);
   if (coursePerf) {
-    const per = coverage(course, exam.item_id).map((m) => {
+    const per = coverage(course, exam.item_id, course.coverage_override).map((m) => {
       const inModule = graded.filter((g) => g.item.module_ids.includes(m));
       return { m: MASTERY.indexOf(mastery(inModule, coursePerf.level, history)), d: DIFFICULTY.indexOf(conceptDifficulty(inModule, graded)) };
     });
@@ -95,6 +96,8 @@ export interface ActionResult {
   personalized: number | null;
   /** Set when the target was settled by the achievable-grade bounds before inference. */
   bound?: Bound;
+  /** True while the exam's covered modules are a guess the student has not confirmed. */
+  provisional?: true;
 }
 
 /** P(grade >= target | e, a) for Intense, Light and Rest. @param target a UBC boundary in percent; anything else throws. */
@@ -110,10 +113,11 @@ export function gradeQuery(
   const cuts = (cpts as { cut_points: CutPoints }).cut_points;
   const e = buildEvidence(course, exam, sessions, today, cuts);
   const { c, G } = courseStanding(course.items, course.submissions);
+  const provisional = isProvisional(course, exam.item_id, course.coverage_override);
   const out = {} as Record<Action, ActionResult>;
   for (const a of ACTIONS) {
     const r = inferBounded(cpts, course.course_code, e, a, c, G, [target]);
-    out[a] = { p: r.p_grade[target], personalized: null, ...(r.bounds[target] && { bound: r.bounds[target] }) };
+    out[a] = { p: r.p_grade[target], personalized: null, ...(provisional && { provisional }), ...(r.bounds[target] && { bound: r.bounds[target] }) };
   }
   return out;
 }

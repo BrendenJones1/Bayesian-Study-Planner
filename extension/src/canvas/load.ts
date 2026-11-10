@@ -1,4 +1,5 @@
 import type { createCanvasClient } from "./client";
+import { mergeAddedExams, resplitAdded, splitGroup } from "./addExam";
 
 type Client = ReturnType<typeof createCanvasClient>;
 
@@ -18,6 +19,12 @@ export interface Item {
   points: number | null;
   module_ids: number[];
   class_stats: ClassStats | null;
+  /** Exam the student added by hand (canvas/addExam.ts); survives Canvas reloads until a matching Canvas item appears. */
+  added_by_you?: boolean;
+  /** Module ids the student chose for this exam; wins over the computed default (coverage.ts). */
+  covered_modules?: number[];
+  /** True when the student typed this weight; re-splitting its group keeps it. */
+  weight_set?: boolean;
 }
 /** Canvas score_statistics; a field Canvas omits is null, never 0. */
 export interface ClassStats {
@@ -59,6 +66,8 @@ export interface CourseCache {
   /** In Canvas order. unlock_at is when the module opens, null when Canvas gives none. */
   modules: { id: number; name: string; unlock_at?: string | null }[];
   items: Item[];
+  /** Percent of the course grade each weighted assignment group carries; its item weights always sum to it. */
+  group_weights?: Record<number, number>;
 }
 export interface Submission {
   item_id: string;
@@ -145,7 +154,7 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
         .filter((m) => (m.items ?? []).some((i: any) => i.type === key && i.content_id === contentId))
         .map((m) => m.id as number);
 
-    const items: Item[] = assignments.map((a) => ({
+    let items: Item[] = assignments.map((a) => ({
       item_id: `assignment:${a.id}`,
       name: a.name,
       type: itemType(group.get(a.assignment_group_id)?.name ?? null, a.name),
@@ -179,34 +188,32 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       });
     }
 
-    // Group weight is split across its items by points (equally if the group has no points);
+    // Group weight is split across its items (by points when all have points, else equally);
     // with no weighted groups, use share of total points.
-    const inGroup = new Map<number, number>();
-    const groupPoints = new Map<number, number>();
-    for (const it of items) {
-      if (it.group_id == null) continue;
-      inGroup.set(it.group_id, (inGroup.get(it.group_id) ?? 0) + 1);
-      groupPoints.set(it.group_id, (groupPoints.get(it.group_id) ?? 0) + (it.points ?? 0));
-    }
+    const group_weights: Record<number, number> = {};
+    if (weighted) for (const g of groups) if (g.group_weight > 0) group_weights[g.id] = g.group_weight;
+    let split = items;
+    for (const gid of Object.keys(group_weights).map(Number)) split = splitGroup(split, gid, group_weights[gid]);
     const totalPoints = items.reduce((t, it) => t + (it.points ?? 0), 0);
-    for (const it of items) {
-      if (weighted) {
-        const gw = group.get(it.group_id as number)?.group_weight;
-        const gp = groupPoints.get(it.group_id as number)!;
-        it.weight = gw ? (gp > 0 ? (gw * (it.points ?? 0)) / gp : gw / inGroup.get(it.group_id as number)!) : null;
-      } else if (totalPoints > 0 && it.points != null) {
-        it.weight = (100 * it.points) / totalPoints;
-        it.weight_is_fallback = true;
+    items = split.map((it) => {
+      const w = { ...it, weight: it.group_id != null && group_weights[it.group_id] ? it.weight : null };
+      if (!weighted && totalPoints > 0 && it.points != null) {
+        w.weight = (100 * it.points) / totalPoints;
+        w.weight_is_fallback = true;
       }
-      it.study_candidate =
-        it.type === "exam" ||
-        it.type === "midterm" ||
-        (MAJOR_PROJECT.test(it.group_name ?? "") && (it.weight ?? 0) > MAJOR_SHARE);
-    }
+      w.study_candidate =
+        w.type === "exam" || w.type === "midterm" || (MAJOR_PROJECT.test(w.group_name ?? "") && (w.weight ?? 0) > MAJOR_SHARE);
+      return w;
+    });
 
     // Canvas still has no date for these; keep the one the student confirmed.
     const old = await stores.getCourse?.(id);
-    for (const it of items) it.due_at ??= old?.items.find((o) => o.item_id === it.item_id)?.due_at ?? null;
+    for (const it of items) {
+      const prev = old?.items.find((o) => o.item_id === it.item_id);
+      it.due_at ??= prev?.due_at ?? null;
+      if (prev?.covered_modules) it.covered_modules = prev.covered_modules;
+    }
+    items = resplitAdded(mergeAddedExams(items, old?.items ?? []), group_weights);
 
     await stores.putCourse({
       canvas_course_id: id,
@@ -222,6 +229,7 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
         announcements.map((a) => ({ title: a.title, posted_at: a.posted_at ?? null, message: htmlToText(a.message ?? "") })),
       modules: modules.map((m) => ({ id: m.id, name: m.name, unlock_at: m.unlock_at ?? null })),
       items,
+      group_weights,
     });
 
     for (const a of assignments) {

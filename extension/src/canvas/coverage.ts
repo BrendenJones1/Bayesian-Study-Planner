@@ -16,6 +16,7 @@ export function coverage(course: CourseCache, examId: string, override?: Coverag
   if (override && override.item_id === examId) return override.module_ids;
   const exam = course.items.find((i) => i.item_id === examId);
   if (!exam) return [];
+  if (exam.covered_modules) return exam.covered_modules;
   const d = due(exam);
   const prev = course.items
     .filter((i) => isExam(i) && i.item_id !== examId && due(i) !== null && (d === null || due(i)! < d))
@@ -31,4 +32,10 @@ export function coverage(course: CourseCache, examId: string, override?: Coverag
   return course.modules
     .filter((_, i) => releasedBy(exam, i) && (!prev || !releasedBy(prev, i)))
     .map((m) => m.id);
+}
+
+/** True until the student has chosen or confirmed the coverage: predictions then carry a "provisional" mark. */
+export function isProvisional(course: CourseCache, examId: string, override?: CoverageOverride): boolean {
+  if (override && override.item_id === examId) return override.confirmed !== true;
+  return !course.items.find((i) => i.item_id === examId)?.covered_modules;
 }
