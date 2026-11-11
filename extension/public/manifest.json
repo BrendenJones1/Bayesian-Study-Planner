@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "description": "Local-first study planner for UBC Canvas.",
   "action": { "default_popup": "popup.html" },
-  "permissions": ["idle"],
-  "host_permissions": ["https://canvas.ubc.ca/*"]
+  "permissions": ["idle", "identity"],
+  "host_permissions": ["https://canvas.ubc.ca/*", "https://www.googleapis.com/calendar/v3/freeBusy"],
+  "oauth2": {
+    "client_id": "REPLACE_WITH_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/calendar.freebusy"]
+  }
 }
