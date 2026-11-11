@@ -4,6 +4,8 @@ import type { Cpts } from "../priors/cpts";
 import type { Availability, Settings } from "../storage/db";
 import type { Loaded } from "./open";
 import { Tonight } from "./Tonight";
+import { tomorrowHours, type Hours } from "../calendar/freebusy";
+import { availableHours } from "../planner/availability";
 import type { CourseCache, Submission } from "../canvas/load";
 import { Grades } from "./Grades";
 import { confirmDueAt } from "../canvas/undated";
@@ -28,7 +30,12 @@ export function App({
   putSession = async () => {},
   removeSession = async () => {},
   onExport,
+  connect,
+  calendarFetch,
 }: {
+  /** Starts Google sign-in and returns a token. Omit to hide the Connect button. */
+  connect?: () => Promise<string>;
+  calendarFetch?: typeof fetch;
   onExport?: () => Promise<void>;
   /** Runs on open: loadCanvas, then loadCpts. Cached data shows meanwhile. */
   load?: (progress: (step: string) => void) => Promise<Loaded>;
@@ -67,7 +74,17 @@ export function App({
   const [failed, setFailed] = useState(false);
   const ok = () => setFailed(false);
   const fail = () => setFailed(true);
-  const savePrefs = (next: Settings) => {
+  const [cal, setCal] = useState<Hours | undefined>();
+  const connectCal = async () => {
+    const now = new Date();
+    const manual = availableHours(availability, now);
+    try {
+      setCal(await tomorrowHours(await connect!(), availability, now, manual, calendarFetch));
+    } catch {
+      setCal({ hours: manual, note: "Could not sign in to Google Calendar; using your manual availability tonight." });
+    }
+  };
+  const savePrefs =(next: Settings) => {
     setPrefs(next);
     saveSettings(next).then(ok, fail);
   };
@@ -78,7 +95,10 @@ export function App({
       {step && <p role="status">{step}</p>}
       {errors.map((m) => <p role="alert" key={m}>{m}</p>)}
       {notes.map((m) => <p role="note" key={m}>{m}</p>)}
+      {connect && !cal && <button onClick={connectCal}>Connect Google Calendar</button>}
+      {cal?.note && <p role="note">{cal.note}</p>}
       <Tonight
+        calendarHours={cal && !cal.note ? cal.hours : undefined}
         courses={courses}
         submissions={submissions}
         sessions={sessions}
