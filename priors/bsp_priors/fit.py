@@ -26,7 +26,7 @@ from bsp_priors.ingest_oulad import (
 from bsp_priors.ingest_ubcgrades import BINS, _p_in_decile, difficulty, read_csv
 
 ALPHA = 1.0
-MODEL_VERSION = "2.1.0"  # 2.1.0 added grade_map.pooled_medium
+MODEL_VERSION = "2.2.0"  # 2.1.0 added grade_map.pooled_medium; 2.2.0 added offset
 TABLES = Path(__file__).resolve().parents[1] / "tables"
 DECILES = [str(d) for d in range(1, 11)]
 WEIGHTS = ["<=15%", ">15%"]
@@ -141,6 +141,12 @@ def build(split: str = "train", alpha: float = ALPHA, tables: Path = TABLES, bui
             _read(o / f"oulad_final_standing_g{g}.csv", sp, split), "final_standing", DECILES,
             {**perf, "exam_standing": DECILES, "item_weight": WEIGHTS}, alpha)
     cpts["grade_map"] = grade_map_table(read_csv(tables / "ubc_grade_bins.csv"))
+    # lazy: offset imports smooth and DECILES from this module
+    from bsp_priors.offset import learn
+
+    train = _read(o / "oulad_exam_standing.csv", sp, "train")  # always train students, whatever `split` is
+    base = cpt(train, "exam_standing", DECILES,
+               {**perf, "study": LEVELS, "timeliness": TIMELINESS, "exam_difficulty": DIFFICULTY}, alpha)
     return {
         "model_version": MODEL_VERSION,
         "built_at": built_at or datetime.now(UTC).isoformat(timespec="seconds"),
@@ -156,6 +162,7 @@ def build(split: str = "train", alpha: float = ALPHA, tables: Path = TABLES, bui
             "item_weight_share_of_final_grade": WEIGHT_CUT,
         },
         "tables": cpts,
+        "offset": learn(train, base),
         "hand_built": hand_built(),
     }
 
