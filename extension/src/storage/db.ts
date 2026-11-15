@@ -69,6 +69,8 @@ export interface Settings {
   lambda_preset: "grades" | "balanced" | "wellbeing";
   /** Grade target per course (canvas_course_id); absent means the default, 72. */
   targets?: Record<number, number>;
+  /** My courses checkbox per course (canvas_course_id); absent means the end-date default. */
+  ticked?: Record<number, boolean>;
 }
 
 export interface CptsCache {
