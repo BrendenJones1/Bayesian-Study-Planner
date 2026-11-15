@@ -13,6 +13,8 @@ import { Sessions } from "./Sessions";
 import { AddExam } from "./AddExam";
 import { Undated } from "./Undated";
 import { Timer } from "./Timer";
+import { MyCourses } from "./MyCourses";
+import { isTicked, visibleCourses } from "./visibleCourses";
 import { Hours } from "./Hours";
 import { saveAvailability } from "../planner/availability";
 
@@ -48,7 +50,7 @@ export function App({
   putSession?: (s: StudySession) => Promise<void>;
   removeSession?: (id: string) => Promise<unknown>;
 }) {
-  const [courses, setCourses] = useState(initial);
+  const [allCourses, setCourses] = useState(initial);
   const [submissions, setSubmissions] = useState(initialSubmissions);
   const [cpts, setCpts] = useState(initialCpts);
   const [availability, setAvailability] = useState(initialAvailability);
@@ -72,6 +74,7 @@ export function App({
   const [failed, setFailed] = useState(false);
   const ok = () => setFailed(false);
   const fail = () => setFailed(true);
+  const courses = visibleCourses(allCourses, prefs, new Date());
   const savePrefs = (next: Settings) => {
     setPrefs(next);
     saveSettings(next).then(ok, fail);
@@ -83,6 +86,11 @@ export function App({
       {step && <p role="status">{step}</p>}
       {errors.map((m) => <p role="alert" key={m}>{m}</p>)}
       {notes.map((m) => <p role="note" key={m}>{m}</p>)}
+      <MyCourses
+        courses={allCourses}
+        isTicked={(c) => isTicked(c, prefs, new Date())}
+        onToggle={(id, t) => savePrefs({ ...prefs, ticked: { ...prefs.ticked, [id]: t } })}
+      />
       <Tonight
         courses={courses}
         submissions={submissions}
@@ -101,7 +109,7 @@ export function App({
         courses={courses}
         submissions={submissions}
         onSet={(c, i, d) =>
-          confirmDueAt(courses, c, i, d, save).then((next) => {
+          confirmDueAt(allCourses, c, i, d, save).then((next) => {
             ok();
             setCourses(next);
           }, fail)
@@ -112,7 +120,7 @@ export function App({
         onChange={(c) =>
           save(c).then(() => {
             ok();
-            setCourses(courses.map((x) => (x.canvas_course_id === c.canvas_course_id ? c : x)));
+            setCourses(allCourses.map((x) => (x.canvas_course_id === c.canvas_course_id ? c : x)));
           }, fail)
         }
       />
