@@ -28,9 +28,9 @@ describe("criterion 1: extension is Vite + TS + React, MV3, host permission only
 });
 
 describe("issue 60: MVP package", () => {
-  it("manifest version and package.json version are both 0.1.1", () => {
-    expect(manifest.version).toBe("0.1.1");
-    expect(pkg.version).toBe("0.1.1");
+  it("manifest version and package.json version are both 0.1.2", () => {
+    expect(manifest.version).toBe("0.1.2");
+    expect(pkg.version).toBe("0.1.2");
     expect(manifest.version).toBe(pkg.version);
   });
 

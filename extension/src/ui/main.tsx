@@ -27,6 +27,7 @@ void openDb().then(async (db) => {
       load={(progress) => loadOnOpen(db, { bundled }, progress)}
       initialCpts={cached}
       availability={await stores(db).availability.get("default")}
+      putAvailability={stores(db).availability.put}
       settings={await stores(db).settings.get("default")}
       saveSettings={stores(db).settings.put}
       firstUse={(await meta.get("default"))?.first_use}

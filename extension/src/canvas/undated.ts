@@ -1,10 +1,18 @@
-import type { CourseCache, Item } from "./load";
+import type { CourseCache, Item, Submission } from "./load";
 
-/** Graded items (points > 0) Canvas gave no due date; the student sets or confirms one in the popup. */
-export const undatedItems = (courses: CourseCache[]): { course: CourseCache; item: Item }[] =>
-  courses.flatMap((course) =>
-    course.items.filter((i) => !i.due_at && (i.points ?? 0) > 0).map((item) => ({ course, item })),
+
+/** Undated, unscored exams and major projects (study candidates, or added by you); the student sets a date in the popup. */
+export const undatedItems = (
+  courses: CourseCache[],
+  submissions: Submission[] = [],
+): { course: CourseCache; item: Item }[] => {
+  const scored = new Set(submissions.filter((s) => s.score != null).map((s) => s.item_id));
+  return courses.flatMap((course) =>
+    course.items
+      .filter((i) => !i.due_at && (i.study_candidate || i.added_by_you) && !scored.has(i.item_id))
+      .map((item) => ({ course, item })),
   );
+};
 
 /** End of the chosen day (YYYY-MM-DD), 23:59 local time, as an ISO string. */
 export const endOfDay = (day: string): string => new Date(`${day}T23:59:00`).toISOString();

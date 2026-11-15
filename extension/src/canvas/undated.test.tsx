@@ -6,7 +6,8 @@ import { confirmDueAt, setDueAt, undatedItems } from "./undated";
 import { createCanvasClient } from "./client";
 import { loadCanvas } from "./load";
 import { openDb, stores } from "../storage/db";
-import type { CourseCache, Item } from "./load";
+import type { CourseCache, Item, Submission } from "./load";
+
 
 const item = (o: Partial<Item>): Item => ({
   item_id: "assignment:1", name: "Midterm", type: "exam", due_at: null, group_id: null, group_name: null, weight: null, weight_is_fallback: false, study_candidate: true, points: 50,
@@ -20,15 +21,33 @@ describe("undated items", () => {
   const c = course([
     item({}),
     item({ item_id: "assignment:2", name: "HW1", due_at: "2026-11-20T07:59:00Z" }),
-    item({ item_id: "assignment:3", name: "Ungraded survey", points: 0 }),
+    item({ item_id: "assignment:3", name: "Ungraded survey", points: 0, study_candidate: false }),
+    item({ item_id: "assignment:4", name: "Weekly lab", study_candidate: false }),
   ]);
+  const sub = (item_id: string, score: number | null) => ({ item_id, score }) as Submission;
 
-  it("popup lists graded items with no due date", () => {
+  it("only study candidates with no due date are listed", () => {
     expect(undatedItems([c]).map((r) => r.item.item_id)).toEqual(["assignment:1"]);
     const html = renderToStaticMarkup(<Undated courses={[c]} onSet={() => {}} />);
     expect(html).toContain("Midterm");
     expect(html).not.toContain("HW1");
     expect(html).not.toContain("Ungraded survey");
+    expect(html).not.toContain("Weekly lab");
+  });
+
+  it("an item with a score in submission_history is never listed", () => {
+    expect(undatedItems([c], [sub("assignment:1", 0)])).toEqual([]); // exact 0 counts as scored
+    expect(undatedItems([c], [sub("assignment:1", null)])).toHaveLength(1);
+  });
+
+  it("an exam added by hand with no date is still listed", () => {
+    const mine = course([item({ item_id: "user:x", name: "My exam", study_candidate: false, added_by_you: true })]);
+    expect(undatedItems([mine]).map((r) => r.item.item_id)).toEqual(["user:x"]);
+  });
+
+  it("the section is not shown when nothing needs a date", () => {
+    const none = course([item({ study_candidate: false })]);
+    expect(renderToStaticMarkup(<Undated courses={[none]} onSet={() => {}} />)).toBe("");
   });
 
   it("popup lets the student set a due date, which removes the item from the list", () => {
