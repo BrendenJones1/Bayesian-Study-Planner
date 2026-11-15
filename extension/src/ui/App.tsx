@@ -5,12 +5,11 @@ import type { Availability, Settings } from "../storage/db";
 import type { Loaded } from "./open";
 import { Tonight } from "./Tonight";
 import type { CourseCache, Submission } from "../canvas/load";
-import { Grades } from "./Grades";
+import { Courses } from "./Courses";
 import { confirmDueAt } from "../canvas/undated";
 import type { StudySession } from "../storage/db";
 import { deleteSession, editSession } from "../timer/sessions";
 import { Sessions } from "./Sessions";
-import { AddExam } from "./AddExam";
 import { Undated } from "./Undated";
 import { Timer } from "./Timer";
 
@@ -100,8 +99,9 @@ export function App({
           }, fail)
         }
       />
-      <AddExam
+      <Courses
         courses={courses}
+        submissions={submissions}
         onChange={(c) =>
           save(c).then(() => {
             ok();
@@ -109,7 +109,6 @@ export function App({
           }, fail)
         }
       />
-      <Grades courses={courses} submissions={submissions} />
       <Sessions
         courses={courses}
         sessions={sessions}

@@ -32,7 +32,8 @@ export function Timer({
   idleApi?: IdleApi;
   now?: () => number;
 }) {
-  const [pick, setPick] = useState("");
+  const [cid, setCid] = useState(0);
+  const [mid, setMid] = useState(0);
   const [failed, setFailed] = useState(false);
   const [t, setT] = useState<TimerState | null>(null);
   useEffect(() => (idleApi ? listenIdle(idleApi, setT, now) : undefined), [idleApi, now]);
@@ -66,20 +67,20 @@ export function Timer({
         </button>
       </section>
     );
-  const [cid, mid] = pick.split(":").map(Number);
+  const course = courses.find((c) => c.canvas_course_id === cid);
   return (
     <section>
-      <select aria-label="Module" value={pick} onChange={(e) => setPick(e.target.value)}>
-        <option value="">Choose a module</option>
-        {courses.flatMap((c) =>
-          c.modules.map((m) => (
-            <option key={`${c.canvas_course_id}:${m.id}`} value={`${c.canvas_course_id}:${m.id}`}>
-              {c.course_code}: {m.name}
-            </option>
-          )),
-        )}
+      <select aria-label="Course" value={cid} onChange={(e) => (setCid(Number(e.target.value)), setMid(0))}>
+        <option value={0}>Choose a course</option>
+        {courses.map((c) => <option key={c.canvas_course_id} value={c.canvas_course_id}>{c.course_code}</option>)}
       </select>{" "}
-      <button disabled={!pick} onClick={() => setT(start(cid, mid, now()))}>
+      {course && (
+        <select aria-label="Module" value={mid} onChange={(e) => setMid(Number(e.target.value))}>
+          <option value={0}>Choose a module</option>
+          {course.modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      )}{" "}
+      <button disabled={!course || !mid} onClick={() => setT(start(cid, mid, now()))}>
         Start studying
       </button>
     </section>
