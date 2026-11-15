@@ -5,12 +5,9 @@ import { addExam, defaultKind, defaultWeight, deleteExam, editExam, kindOf, pref
 import { coverage, isProvisional } from "../canvas/coverage";
 
 /** "Add exam" form, the exams added by you (edit, delete), and syllabus proposals that open the form pre-filled. */
-export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChange: (c: CourseCache) => void }) {
-  const [courseId, setCourseId] = useState(courses[0]?.canvas_course_id);
+export function AddExam({ course, onChange }: { course: CourseCache; onChange: (c: CourseCache) => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<ExamInput>>({});
-  const course = courses.find((c) => c.canvas_course_id === courseId);
-  if (!course) return null;
   const title = form.title ?? "";
   const kind = form.kind ?? defaultKind(title);
   const auto = title ? defaultWeight(course, title, kind) : null;
@@ -24,10 +21,7 @@ export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChang
   };
   return (
     <section>
-      <h2>Add exam</h2>
-      <select aria-label="Course" value={courseId} onChange={(e) => (setCourseId(Number(e.target.value)), setForm({}))}>
-        {courses.map((c) => <option key={c.canvas_course_id} value={c.canvas_course_id}>{c.course_code}</option>)}
-      </select>
+      <h3>Add exam</h3>
       <input aria-label="Exam title" value={title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
       <input type="date" aria-label="Exam date" value={form.day ?? ""} onChange={(e) => setForm({ ...form, day: e.target.value })} />
       <select aria-label="Type" value={kind} onChange={(e) => setForm({ ...form, kind: e.target.value as Kind })}>
@@ -38,7 +32,8 @@ export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChang
       <fieldset>
         <legend>Covered modules</legend>
         {course.modules.map((m) => (
-          <label key={m.id}>
+          <div key={m.id}>
+          <label>
             <input
               type="checkbox"
               checked={modules.includes(m.id)}
@@ -46,6 +41,7 @@ export function AddExam({ courses, onChange }: { courses: CourseCache[]; onChang
             />
             {m.name}
           </label>
+          </div>
         ))}
       </fieldset>
       {auto === null && title && (

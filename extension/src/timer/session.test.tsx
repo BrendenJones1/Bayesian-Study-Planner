@@ -16,7 +16,8 @@ describe("criterion 1: start/stop from the popup; module required", () => {
 
   it("popup disables Start until a module is chosen, and lists modules", () => {
     const html = renderToStaticMarkup(<Timer courses={[course]} save={async () => {}} idleApi={undefined} />);
-    expect(html).toContain("STAT 251: Week 1");
+    expect(html).toContain("STAT 251");
+    expect(html).not.toContain("Week 1"); // modules appear only once a course is chosen
     expect(html).toMatch(/<button disabled=""[^>]*>Start studying/);
   });
 

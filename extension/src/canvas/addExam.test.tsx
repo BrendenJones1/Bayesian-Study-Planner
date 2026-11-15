@@ -45,14 +45,14 @@ describe("Add exam", () => {
     const cov = ps.find((p) => p.kind === "coverage")!;
     expect(prefill(c, date)).toEqual({ title: "Final Exam", day: "2026-12-12" });
     expect(prefill(c, cov)).toEqual({ title: "Final Exam", modules: [2, 3] });
-    const html = renderToStaticMarkup(<AddExam courses={[c]} onChange={() => {}} />);
+    const html = renderToStaticMarkup(<AddExam course={c} onChange={() => {}} />);
     expect(html).toContain("Use in form");
     expect(html).toContain("(provisional)");
   });
 
   it("stored exams are tagged 'added by you', editable and deletable", () => {
     const next = addExam(base, { title: "Midterm 2", day: "2026-11-10", modules: [2] }, "x");
-    expect(renderToStaticMarkup(<AddExam courses={[next]} onChange={() => {}} />)).toContain("(added by you)");
+    expect(renderToStaticMarkup(<AddExam course={next} onChange={() => {}} />)).toContain("(added by you)");
     const edited = editExam(next, "user:x", { title: "Midterm 2b", day: "2026-11-12", modules: [3] });
     expect(edited.items.filter((i) => i.added_by_you)).toHaveLength(1);
     expect(edited.items.at(-1)).toMatchObject({ name: "Midterm 2b", covered_modules: [3] });
