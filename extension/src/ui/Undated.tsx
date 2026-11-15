@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { undatedItems } from "../canvas/undated";
-import type { CourseCache } from "../canvas/load";
+import type { CourseCache, Submission } from "../canvas/load";
 
-/** Lists graded items with no due date; Confirm hands the chosen day (YYYY-MM-DD) to onSet. */
+
+/** Lists ungraded exams and major projects with no due date; Confirm hands the chosen day (YYYY-MM-DD) to onSet. */
 export function Undated({
   courses,
+  submissions = [],
   onSet,
 }: {
   courses: CourseCache[];
+  submissions?: Submission[];
   onSet: (courseId: number, itemId: string, day: string) => void;
 }) {
   const [day, setDay] = useState<Record<string, string>>({});
-  const rows = undatedItems(courses);
+  const rows = undatedItems(courses, submissions);
   if (!rows.length) return null;
   return (
     <section id="undated">

@@ -99,6 +99,7 @@ export function App({
       <Timer courses={courses} save={putSession} />
       <Undated
         courses={courses}
+        submissions={submissions}
         onSet={(c, i, d) =>
           confirmDueAt(courses, c, i, d, save).then((next) => {
             ok();
