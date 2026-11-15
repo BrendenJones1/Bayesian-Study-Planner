@@ -4,6 +4,7 @@ import { openDb, stores } from "../storage/db";
 import { localDay } from "../model/encode";
 import type { Cpts } from "../priors/cpts";
 import bundledCpts from "../../../priors/tables/cpts.json";
+import { connectCalendar } from "../calendar/freebusy";
 import { loadOnOpen } from "./open";
 import { downloadJson, exportData } from "../storage/export";
 
@@ -36,6 +37,7 @@ void openDb().then(async (db) => {
       initialSessions={await sessions.getAll()}
       putSession={putSession}
       removeSession={sessions.delete}
+      connect={() => connectCalendar()}
       onExport={async () => downloadJson(await exportData(db))}
     />,
   );

@@ -28,7 +28,10 @@ export function Tonight({
   onTarget,
   onPreset,
   now = new Date(),
+  calendarHours,
 }: {
+  /** H from Google free/busy; when set it replaces the manual hours. */
+  calendarHours?: number;
   courses: CourseCache[];
   submissions: Submission[];
   sessions: StudySession[];
@@ -44,7 +47,7 @@ export function Tonight({
   const today = localDay(now.toISOString());
   const tomorrow = localDay(new Date(now.getTime() + DAY).toISOString());
   const last = localDay(new Date(now.getTime() + HORIZON_DAYS * DAY).toISOString());
-  const hours = availableHours(availability, now);
+  const hours = calendarHours ?? availableHours(availability, now);
   const items = courses.flatMap((c) => c.items);
   const cards = courses.flatMap((c): { c: CourseCache; exam: Item | null }[] => {
     const exams = c.items.filter((i) => isExam(i.type));
