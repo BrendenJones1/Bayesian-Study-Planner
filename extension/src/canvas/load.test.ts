@@ -44,12 +44,78 @@ async function run() {
   }) as unknown as typeof fetch;
   const courses: CourseCache[] = [];
   const subs: Submission[] = [];
-  await loadCanvas(createCanvasClient({ fetchFn }), {
+  const skipped = await loadCanvas(createCanvasClient({ fetchFn }), {
     putCourse: async (c) => void courses.push(c),
     putSubmission: async (s) => void subs.push(s),
   });
-  return { courses, subs };
+  return { courses, subs, skipped };
 }
+
+/** Canvas's real answer when a course turns a page off. */
+const DISABLED = { message: "That page has been disabled for this course" };
+/** Run with some paths answering 404 DISABLED; fixtures are restored afterwards. */
+async function runWith(change: Record<string, unknown>, disabled: string[]) {
+  const saved = { ...fixtures };
+  Object.assign(fixtures, change);
+  for (const p of disabled) fixtures[p] = DISABLED;
+  try {
+    const fetchFn = (async (url: string) => {
+      const body = fixtures[url.replace("https://canvas.ubc.ca/api/v1", "")];
+      if (!body) return new Response("[]", { status: 404 });
+      return new Response(JSON.stringify(body), { status: body === DISABLED ? 404 : 200 });
+    }) as unknown as typeof fetch;
+    const courses: CourseCache[] = [];
+    const skipped = await loadCanvas(createCanvasClient({ fetchFn }), {
+      putCourse: async (c) => void courses.push(c),
+      putSubmission: async () => {},
+    });
+    return { courses, skipped };
+  } finally {
+    for (const k of Object.keys(fixtures)) delete fixtures[k];
+    Object.assign(fixtures, saved);
+  }
+}
+const QUIZZES = "/courses/1/quizzes?per_page=100";
+const MODULES = "/courses/1/modules?include[]=items&per_page=100";
+const GROUPS = "/courses/1/assignment_groups?per_page=100";
+const ASSIGNMENTS = "/courses/1/assignments?include[]=submission&include[]=score_statistics&per_page=100";
+/** A second course after STAT 230, with one assignment. */
+const second = {
+  [COURSES]: [...(fixtures[COURSES] as object[]), { id: 2, course_code: "COSC 329", term: { name: "2026W1" }, teachers: [] }],
+  "/courses/2/assignment_groups?per_page=100": [],
+  "/courses/2/assignments?include[]=submission&include[]=score_statistics&per_page=100": [
+    { id: 200, name: "A1", due_at: "2026-09-15T12:00:00Z", points_possible: 10 },
+  ],
+};
+
+describe("courses with disabled pages", () => {
+  it("a course whose Quizzes page is disabled still loads, with no standalone quiz items", async () => {
+    const { courses, skipped } = await runWith({}, [QUIZZES]);
+    expect(skipped).toEqual([]);
+    expect(courses).toHaveLength(1);
+    expect(courses[0].items.map((i) => i.item_id)).toEqual(["assignment:100", "assignment:101", "assignment:102"]);
+  });
+
+  it("a course whose Modules page is disabled still loads, with no modules", async () => {
+    const { courses, skipped } = await runWith({}, [MODULES]);
+    expect(skipped).toEqual([]);
+    expect(courses[0].modules).toEqual([]);
+    expect(courses[0].items).toHaveLength(4);
+    expect(courses[0].items.every((i) => i.module_ids.length === 0)).toBe(true);
+  });
+
+  it("a course whose assignments or assignment groups cannot be loaded is skipped, the courses after it still load, and the skipped course is named with the error", async () => {
+    for (const path of [ASSIGNMENTS, GROUPS]) {
+      const { courses, skipped } = await runWith(second, [path]);
+      expect(courses.map((c) => c.course_code)).toEqual(["COSC 329"]);
+      expect(skipped).toEqual(["STAT 230: not loaded (Canvas request failed: 404)"]);
+    }
+  });
+
+  it("a failure on the course list itself is still reported as before", async () => {
+    await expect(runWith({}, [COURSES])).rejects.toThrow("Canvas request failed: 404");
+  });
+});
 
 describe("canvas loader", () => {
   it("course_cache and submission_history stores populated per the design doc's data model", async () => {
