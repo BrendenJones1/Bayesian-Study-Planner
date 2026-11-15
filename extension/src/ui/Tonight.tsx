@@ -84,7 +84,11 @@ export function Tonight({
           ))}
         </select>
       </label>
-      <p>Hours available today: {hours.toFixed(1)}</p>
+      {availability.weekly_defaults.length ? (
+        <p>Hours available today: {hours.toFixed(1)}</p>
+      ) : (
+        <p>Hours not set yet. <a href="#study-hours">Set your study hours</a></p>
+      )}
       {plan.length > 0 && <p>Plan total: {plan.reduce((s, a) => s + ACTION_HOURS[a], 0)} h</p>}
       {cards.map(({ c, exam }, i) => {
         if (!exam)

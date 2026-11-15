@@ -13,15 +13,18 @@ import { Sessions } from "./Sessions";
 import { AddExam } from "./AddExam";
 import { Undated } from "./Undated";
 import { Timer } from "./Timer";
+import { Hours } from "./Hours";
+import { saveAvailability } from "../planner/availability";
 
 export function App({
   initial = [],
   submissions: initialSubmissions = [],
   load,
   initialCpts = null,
-  availability = { id: "default", weekly_defaults: [], busy_blocks: [] },
+  availability: initialAvailability = { id: "default", weekly_defaults: [], busy_blocks: [] },
   settings = { id: "default", lambda_preset: "balanced" },
   saveSettings = async () => {},
+  putAvailability = async () => {},
   firstUse,
   save,
   initialSessions = [],
@@ -36,6 +39,7 @@ export function App({
   availability?: Availability;
   settings?: Settings;
   saveSettings?: (s: Settings) => Promise<void>;
+  putAvailability?: (a: Availability) => Promise<void>;
   firstUse?: string | null;
   initial?: CourseCache[];
   submissions?: Submission[];
@@ -47,6 +51,7 @@ export function App({
   const [courses, setCourses] = useState(initial);
   const [submissions, setSubmissions] = useState(initialSubmissions);
   const [cpts, setCpts] = useState(initialCpts);
+  const [availability, setAvailability] = useState(initialAvailability);
   const [prefs, setPrefs] = useState(settings);
   const [step, setStep] = useState<string | null>(load ? "Loading…" : null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -90,6 +95,7 @@ export function App({
         onTarget={(id, t) => savePrefs({ ...prefs, targets: { ...prefs.targets, [id]: t } })}
         onPreset={(p: LambdaPreset) => savePrefs({ ...prefs, lambda_preset: p })}
       />
+      <Hours availability={availability} onSave={(a) => saveAvailability(putAvailability, a).then(() => setAvailability(a))} />
       <Timer courses={courses} save={putSession} />
       <Undated
         courses={courses}
