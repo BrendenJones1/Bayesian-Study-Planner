@@ -26,11 +26,12 @@ export async function loadOnOpen(
   const errors: string[] = [];
   progress("Loading Canvas…");
   try {
-    await loadCanvas(createCanvasClient({ fetchFn: o.canvasFetch }), {
+    const skipped = await loadCanvas(createCanvasClient({ fetchFn: o.canvasFetch }), {
       putCourse: s.course_cache.put,
       getCourse: async (id) => (await s.course_cache.get(id)) as CourseCache | undefined,
       putSubmission: s.submission_history.put,
     });
+    errors.push(...skipped);
   } catch (e) {
     errors.push(msg(e));
   }

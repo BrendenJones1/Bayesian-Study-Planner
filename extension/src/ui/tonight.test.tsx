@@ -87,6 +87,18 @@ describe("popup: tonight's plan", () => {
     expect(r.cpts).toBe(bundled);
   });
 
+  it("a course that cannot be loaded is named in the popup errors and the other courses still load", async () => {
+    const db = await openDb(`tonight-${n++}`);
+    const canvasFetch = vi.fn(async (url: string) => {
+      if (url.includes("/courses?")) return new Response(JSON.stringify([{ id: 1, course_code: "BAD 100" }, { id: 2, course_code: "OK 200" }]));
+      if (url.includes("/courses/1/assignments")) return new Response("{}", { status: 404 });
+      return new Response("[]");
+    }) as unknown as typeof fetch;
+    const r = await loadOnOpen(db, { canvasFetch, fetchFn: down, bundled });
+    expect(r.errors).toEqual(["BAD 100: not loaded (Canvas request failed: 404)"]);
+    expect(r.courses.map((c) => c.course_code)).toEqual(["OK 200"]);
+  });
+
   it("first install with the fetch failing uses the bundled tables", async () => {
     await setup(exam5, down);
     await waitFor(() => screen.getByText(/Plan tonight/));

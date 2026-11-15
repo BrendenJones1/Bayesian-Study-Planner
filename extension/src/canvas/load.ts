@@ -126,11 +126,25 @@ export function normalizeScore(
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Canvas JSON is untyped; fields are read defensively */
-export async function loadCanvas(client: Client, stores: Stores): Promise<void> {
+/**
+ * Loads every active course. A course that fails is skipped (its cached copy is kept) and the
+ * rest still load; returns one message per skipped course. A failure on the course list throws.
+ */
+export async function loadCanvas(client: Client, stores: Stores): Promise<string[]> {
   const courses = await client.getAll<any>(
     "/courses?enrollment_state=active&include[]=term&include[]=teachers&include[]=syllabus_body&per_page=100",
   );
+  const skipped: string[] = [];
   for (const c of courses) {
+    try {
+      await loadCourse(c);
+    } catch (e) {
+      skipped.push(`${c.course_code ?? `Course ${c.id}`}: not loaded (${e instanceof Error ? e.message : String(e)})`);
+    }
+  }
+  return skipped;
+
+  async function loadCourse(c: any): Promise<void> {
     const id = c.id;
     // Any failure (403, 404, 5xx) is a gap recorded as null; the course still loads.
     const orNull = <T,>(p: Promise<T>) => p.catch(() => null);
@@ -139,13 +153,15 @@ export async function loadCanvas(client: Client, stores: Stores): Promise<void> 
       orNull(client.getAll<any>(`/calendar_events?${ctx}&all_events=true&per_page=100`)),
       orNull(client.getAll<any>(`/announcements?${ctx}&start_date=2000-01-01&end_date=2100-01-01&per_page=100`)),
     ]);
+    // A course can turn off its Modules or Quizzes page (Canvas answers 404 "That page has been
+    // disabled for this course"); that course simply has none.
     const [modules, groups, assignments, quizzes] = await Promise.all([
-      client.getAll<any>(`/courses/${id}/modules?include[]=items&per_page=100`),
+      orNull(client.getAll<any>(`/courses/${id}/modules?include[]=items&per_page=100`)).then((m) => m ?? []),
       client.getAll<any>(`/courses/${id}/assignment_groups?per_page=100`),
       client.getAll<any>(
         `/courses/${id}/assignments?include[]=submission&include[]=score_statistics&per_page=100`,
       ),
-      client.getAll<any>(`/courses/${id}/quizzes?per_page=100`),
+      orNull(client.getAll<any>(`/courses/${id}/quizzes?per_page=100`)).then((q) => q ?? []),
     ]);
     const group = new Map<number, any>(groups.map((g) => [g.id, g]));
     const weighted = groups.some((g) => g.group_weight > 0);
