@@ -1,0 +1,98 @@
+{
+  "seed": 0,
+  "outcome": "exam_standing decile",
+  "students": {
+    "train": 15154,
+    "test": 3823
+  },
+  "rows": {
+    "train": 111716,
+    "test": 27821
+  },
+  "test_student_share": 0.20145439215892924,
+  "models_alpha_1": {
+    "course_history_only": {
+      "log_loss": 2.13069126657757,
+      "accuracy": 0.18906581359404767,
+      "zero_probability_rows": 0,
+      "n": 27821
+    },
+    "network": {
+      "log_loss": 2.067249800496397,
+      "accuracy": 0.22842457136695302,
+      "zero_probability_rows": 0,
+      "n": 27821
+    }
+  },
+  "alpha": {
+    "course_history_only": {
+      "0": {
+        "log_loss": 2.1306921597414297,
+        "accuracy": 0.18906581359404767,
+        "zero_probability_rows": 0,
+        "n": 27821
+      },
+      "1": {
+        "log_loss": 2.13069126657757,
+        "accuracy": 0.18906581359404767,
+        "zero_probability_rows": 0,
+        "n": 27821
+      },
+      "5": {
+        "log_loss": 2.130688260884131,
+        "accuracy": 0.18906581359404767,
+        "zero_probability_rows": 0,
+        "n": 27821
+      }
+    },
+    "network": {
+      "0": {
+        "log_loss": 2.067410093549196,
+        "accuracy": 0.22842457136695302,
+        "zero_probability_rows": 0,
+        "n": 27821
+      },
+      "1": {
+        "log_loss": 2.067249800496397,
+        "accuracy": 0.22842457136695302,
+        "zero_probability_rows": 0,
+        "n": 27821
+      },
+      "5": {
+        "log_loss": 2.067489420674774,
+        "accuracy": 0.22842457136695302,
+        "zero_probability_rows": 0,
+        "n": 27821
+      }
+    }
+  },
+  "alpha_0_empty_cell_demo": {
+    "0": {
+      "failed": "alpha = 0 and a parent cell is empty: 0/0",
+      "log_loss": null,
+      "accuracy": null
+    },
+    "1": {
+      "log_loss": 2.269687223731557,
+      "accuracy": 0.13586858847633082,
+      "zero_probability_rows": 0,
+      "n": 27821
+    }
+  },
+  "network_resolution": {
+    "sparse_cells": 0,
+    "deciles": {
+      "log_loss": 2.067249800496397,
+      "accuracy": 0.22842457136695302,
+      "zero_probability_rows": 0,
+      "n": 27821
+    },
+    "quintiles": null,
+    "kept": "deciles"
+  },
+  "studentlife": {
+    "test_responses": 313,
+    "load_alone_log_loss": 1.1394567718095474,
+    "overall_rate_log_loss": 1.133780687077413
+  }
+}
