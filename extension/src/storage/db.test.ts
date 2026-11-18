@@ -25,12 +25,12 @@ describe("storage layer", () => {
     await s.quiz_answer.put({ question_id: "q", correct: true, answered_at: "t" });
     await s.posterior.put({ course_id: 1, modules: {}, updated_at: "t" });
     await s.availability.put({ id: "default", weekly_defaults: [], busy_blocks: [] });
-    await s.frozen_prediction.put({ item_id: "a", p_at_least_target: 0.7, interval: [0.5, 0.9], created_at: "t" });
+    await s.frozen_prediction.put({ item_id: "a", deciles: [0.1, 0.9], most_likely: 2, created_at: "t" });
 
     expect((await s.course_cache.get(1))?.course_code).toBe("COSC 111");
     expect((await s.submission_history.get("a"))?.score).toBe(0); // exact 0 survives
     expect(await s.study_session.getAll()).toHaveLength(1);
-    expect((await s.frozen_prediction.get("a"))?.interval).toEqual([0.5, 0.9]);
+    expect((await s.frozen_prediction.get("a"))?.most_likely).toBe(2);
     await s.quiz_answer.delete("q");
     expect(await s.quiz_answer.get("q")).toBeUndefined();
     db.close();

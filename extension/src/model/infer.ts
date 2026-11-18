@@ -150,7 +150,14 @@ export function infer(
   return { p_grade, e_stress_next: expectedStress(nodes, ev) };
 }
 
-const expectedStress = (nodes: Record<string, Node>, ev: Record<string, State>) =>
+/**
+ * The baseline's exam-standing distribution, P(decile 1..10 | evidence), with no personal offset. Action is
+ * left unobserved (uniform), since this describes the student's evidence rather than a chosen plan.
+ */
+export const examStandingDist = (cpts: unknown, evidence: Record<string, string | number>): number[] =>
+  posterior(buildNodes(cpts as Tables), "ExamStanding", Object.fromEntries(Object.entries(evidence).map(([k, v]) => [k, String(v)])));
+
+const expectedStress =(nodes: Record<string, Node>, ev: Record<string, State>) =>
   posterior(nodes, "StressNext", ev).reduce((a, p, i) => a + STRESS_SCORE[LEVELS[i]] * p, 0);
 
 /** E[stress next | evidence] alone (Low 0, Med 0.5, High 1). Stress sits on its own branch, so no grade evidence is needed. */
