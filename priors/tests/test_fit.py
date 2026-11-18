@@ -71,10 +71,10 @@ def test_criterion_6_hand_calculated_entries_match(built):
     # Counts below were tallied by hand from the train rows of the committed CSVs.
     assert _p(built, "study", ["High"], "High") == pytest.approx(25777 / 50576)  # 25776 of 50573
     assert _p(built, "study", ["Low"], "Low") == pytest.approx(24118 / 50525)  # 24117 of 50522
-    u = ["High", "High", "On time", "Hard"]
-    assert _p(built, "exam_standing", u, "10") == pytest.approx(618 / 2116)  # 617 of 2106
+    u = ["High", "High", "On time", "Med"]
+    assert _p(built, "exam_standing", u, "10") == pytest.approx(2962 / 12630)  # 2961 of 12620
     u = ["Low", "Low", "Often late or missing", "Easy"]
-    assert _p(built, "exam_standing", u, "1") == pytest.approx(305 / 1488)  # 304 of 1478
+    assert _p(built, "exam_standing", u, "1") == pytest.approx(47 / 116)  # 46 of 106
     assert _p(built, "final_standing_g25", ["Med", "5", ">15%"], "6") == pytest.approx(41 / 77)  # 40 of 67
     assert _p(built, "final_standing_g25", ["Med", "5", ">15%"], "1") == pytest.approx(1 / 77)  # empty cell
     assert _p(built, "final_standing_g50", ["High", "10", "<=15%"], "10") == pytest.approx(121 / 264)  # 120 of 254
