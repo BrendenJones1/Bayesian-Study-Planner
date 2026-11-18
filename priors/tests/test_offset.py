@@ -88,3 +88,13 @@ def test_p_offset_formula():
     p = offset.p_offset([0.2] * 5, Counter({2: 3}), 2)
     assert p[4] == pytest.approx((2 * 0.2 + 3) / 5) and sum(p) == pytest.approx(1)
     assert not math.isnan(sum(p))
+
+
+def test_issue_169_offset_residuals_read_the_exam_difficulty_column():
+    # The offset's baseline decile comes from the exam_standing CPT row picked by the CSV's exam_difficulty, so a
+    # regenerated oulad_exam_standing.csv (leak-free difficulty) feeds the offset with no change to offset.py.
+    assert "exam_difficulty" in offset.PARENTS
+    cpt = {"values": {"Med|Med|On time|Easy": [0.0] * 9 + [1.0], "Med|Med|On time|Med": [1.0] + [0.0] * 9}}
+    row = {"perf": "Med", "study": "Med", "timeliness": "On time"}
+    assert offset.baseline_mode(cpt, row | {"exam_difficulty": "Easy"}) == 10
+    assert offset.baseline_mode(cpt, row | {"exam_difficulty": "Med"}) == 1

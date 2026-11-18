@@ -123,7 +123,7 @@ Worked example: 412 OULAD rows with (Perf High, Study High, On time, Exam Hard),
 
 **Rules for building the CSVs:**
 
-- **No leakage.** Perf, Study and Timeliness use only assessments *before* the one being predicted. The standing outcome uses that assessment, or the final result, only.
+- **No leakage.** Perf, Study, Timeliness and Exam difficulty use only assessments *before* the one being predicted. The standing outcome uses that assessment, or the final result, only. OULAD has no modules, so Exam difficulty there mirrors the extension's concept difficulty with "covered" meaning the earlier assessments dated after the previous assessment of the same type (all earlier ones for the first of its type): per type, covered class mean minus the mean of all earlier class means, averaged across types, ±5 points.
 - **Thirds and deciles within each class.** Ranks are computed per module presentation (OULAD) or per course offering (UBC), so the levels mean the same thing across schools.
 - **Withdrawals excluded** in OULAD, matching UBC distributions, which contain no W's.
 - **Two checkpoints, 25% and 50%.** A checkpoint is the share of the final grade already graded before the assessment being predicted. In OULAD the final exam is about half of the grade, so no module has 75% graded before it and a 75% table would have no rows. A student with more than half graded uses the 50% table.

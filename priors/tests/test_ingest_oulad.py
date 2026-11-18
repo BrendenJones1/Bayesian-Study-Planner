@@ -197,3 +197,73 @@ def test_write_all_writes_the_study_cuts_file(tmp_path: Path):
     got = json.loads((tmp_path / "out" / "oulad_study_cuts.json").read_text())
     assert set(got) == {"active_day_share", "definition"}
     assert set(got["active_day_share"]) == {"low_max", "med_max"}
+
+
+def _grp(rows):
+    """One presentation's assessments: (id_assessment, assessment_type, date)."""
+    return pd.DataFrame(rows, columns=["id_assessment", "assessment_type", "date"])
+
+
+def test_issue_169_exam_difficulty_uses_only_assessments_dated_before_it():
+    # Predicting TMA 4 (day 20): earlier = CMAs 1 and 3, covered = CMA 3 (after TMA 2). Gap 60 - 60 = 0: Med.
+    grp = _grp([(1, "CMA", 5), (2, "TMA", 10), (3, "CMA", 15), (4, "TMA", 20), (5, "CMA", 20), (6, "CMA", 30)])
+    means = pd.Series({1: 60.0, 2: 70.0, 3: 60.0, 4: 70.0})
+    assert o.exam_difficulty(20, "TMA", grp, means) == "Med"
+    # Same-day CMA 5 would make it Hard (35 vs 43.3) and later CMA 6 Easy (79.5 vs 73) if either leaked in.
+    assert o.exam_difficulty(20, "TMA", grp, means.combine_first(pd.Series({5: 10.0}))) == "Med"
+    assert o.exam_difficulty(20, "TMA", grp, means.combine_first(pd.Series({6: 99.0}))) == "Med"
+    assert o.exam_difficulty(20, "TMA", grp, means.combine_first(pd.Series({4: 0.0}))) == "Med"  # its own mean
+
+
+def test_issue_169_exam_difficulty_mirrors_concept_difficulty():
+    # Per type: covered class mean minus the mean of all earlier class means of that type; gaps averaged
+    # across the types present; beyond +-5 points is Easy/Hard (extension/src/model/evidence.ts conceptDifficulty).
+    grp = _grp([(1, "CMA", 1), (2, "TMA", 2), (3, "TMA", 10), (4, "CMA", 11), (5, "TMA", 12), (6, "TMA", 20)])
+    m = {1: 80.0, 2: 70.0, 3: 70.0, 5: 70.0}
+    # predicting 6: previous TMA is 5 at day 12, so nothing is covered: Med
+    assert o.exam_difficulty(20, "TMA", grp, pd.Series(m | {4: 50.0})) == "Med"
+    # predicting 5 (previous TMA at day 10): covered = item 4 (CMA). CMA gap = 4 - mean(1, 4)
+    assert o.exam_difficulty(12, "TMA", grp, pd.Series(m | {4: 60.0})) == "Hard"  # 60 - 70 = -10
+    assert o.exam_difficulty(12, "TMA", grp, pd.Series(m | {4: 70.0})) == "Med"  # 70 - 75 = -5, not beyond
+    assert o.exam_difficulty(12, "TMA", grp, pd.Series(m | {4: 100.0})) == "Easy"  # 100 - 90 = +10
+    # predicting TMA 6 (previous TMA 3): covered = CMA 4 and Exam 5. Gaps: CMA 60 - 70 = -10, Exam 76 - 74 = +2;
+    # their average, -4, is Med
+    grp2 = _grp([(1, "Exam", 0), (2, "CMA", 1), (3, "TMA", 3), (4, "CMA", 5), (5, "Exam", 6), (6, "TMA", 10)])
+    m2 = pd.Series({1: 72.0, 2: 80.0, 3: 70.0, 4: 60.0, 5: 76.0})
+    assert o.exam_difficulty(10, "TMA", grp2, m2) == "Med"
+    assert o.exam_difficulty(10, "TMA", grp2, m2.drop(5)) == "Hard"  # only the CMA gap, -10, remains
+
+
+def test_issue_169_covered_is_earlier_assessments_after_the_previous_one_of_its_type():
+    grp = _grp([(1, "TMA", 10), (2, "CMA", 15), (3, "CMA", 18), (4, "TMA", 20), (5, "Exam", 30)])
+    means = pd.Series({1: 90.0, 2: 40.0, 3: 50.0, 4: 90.0})
+    # TMA 4: covered = CMAs 2 and 3 (after TMA 1), each CMA gap is (45 - 45) = 0: Med
+    assert o.exam_difficulty(20, "TMA", grp, means) == "Med"
+    # first assessment of its type (the exam): covered = all earlier, so every gap is 0: Med
+    assert o.exam_difficulty(30, "Exam", grp, means) == "Med"
+    # no earlier assessment with a class mean: Med
+    assert o.exam_difficulty(10, "TMA", grp, means) == "Med"
+
+
+def _with_difficulty_signal():
+    """make(), with CMAs between TMAs and some CMAs much harder or easier, so labels are not all Med."""
+    d = make()
+    a = d["assessments"]
+    a.loc[a.id_assessment % 10 % 2 == 0, "assessment_type"] = "CMA"  # ids 2,4,6,8 and 12,14,16,18
+    sa = d["student_assessment"]
+    sa.loc[sa.id_assessment.isin([4, 14]), "score"] -= 30
+    sa.loc[sa.id_assessment.isin([8, 18]), "score"] += 30
+    return d
+
+
+def test_issue_169_changing_any_score_on_the_predicted_assessment_never_changes_its_exam_difficulty():
+    base = o.build_tables(**_with_difficulty_signal())[1]
+    assert set(base.exam_difficulty) - {"Med"}  # the fixture has signal to lose
+    label = base.groupby("id_assessment").exam_difficulty.agg(lambda s: set(s))
+    assert (label.map(len) == 1).all()  # one label per assessment
+    for aid in label.index:
+        for new in (0.0, 100.0):
+            d = _with_difficulty_signal()
+            d["student_assessment"].loc[d["student_assessment"].id_assessment == aid, "score"] = new
+            got = o.build_tables(**d)[1]
+            assert set(got[got.id_assessment == aid].exam_difficulty) == label[aid], (aid, new)

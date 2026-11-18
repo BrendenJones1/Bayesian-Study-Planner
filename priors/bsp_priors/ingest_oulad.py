@@ -2,8 +2,8 @@
 
 Research basis: thirds and deciles are percentile ranks within a class, the quantity that
 transfers to UBC through equipercentile linking (Kolen & Brennan, Test Equating, Scaling,
-and Linking). Rules: no leakage (Perf, Study and Timeliness use only data dated before the
-assessment), ranks within each module presentation, withdrawals excluded, item weight as
+and Linking). Rules: no leakage (Perf, Study, Timeliness and Exam difficulty use only data dated
+before the assessment), ranks within each module presentation, withdrawals excluded, item weight as
 share of the final grade within the module, 80/20 split by student.
 
 Also writes oulad_study_cuts.json: thirds of the active-day share (train students), used for the
@@ -26,7 +26,7 @@ TIMELINESS = ["On time", "Some late", "Often late or missing"]
 DIFFICULTY = ["Easy", "Med", "Hard"]
 SOME_LATE_MAX = 1 / 3  # Timeliness: share of earlier items late or missing; <= this is Some late (also written to cpts.json)
 WEIGHT_CUT = 0.15  # assumed (design-v2 Assumptions): share of the final grade
-DIFFICULTY_CUT = 5.0  # assumed: points from the mean of earlier class means
+DIFFICULTY_CUT = 5.0  # assumed: points between covered and all earlier class means, same as the extension
 SPARSE = 30
 CHECKPOINTS = (25, 50)  # share of the final grade graded before the assessment; no OULAD module has 75%
 # graded before its final exam (about half the grade), so a 75% table would have no rows (design-v2, Network)
@@ -73,8 +73,30 @@ def active_share(clicks: pd.DataFrame, students: pd.Index, date: float) -> pd.Se
     return window.groupby("id_student").date.nunique().reindex(students).fillna(0) / max(date, 1)
 
 
-def _features(a, grp, sa, clicks, students, prev_mean):
-    """Perf, Study, Timeliness and difficulty for one assessment, from dates before a.date."""
+def exam_difficulty(date: float, kind: str, grp: pd.DataFrame, means: pd.Series) -> str:
+    """Exam difficulty of an assessment of type `kind` due on `date`, from assessments dated before it only.
+
+    Mirrors the extension's conceptDifficulty (extension/src/model/evidence.ts): per assessment type present
+    in the covered set, the mean class mean of the covered assessments minus that of all earlier ones; the
+    gaps are averaged across types; beyond +-DIFFICULTY_CUT points is Easy/Hard; nothing covered gives Med.
+    OULAD has no modules, so "covered" stands in for the extension's default coverage (modules released
+    since the previous exam): the earlier assessments dated after the previous assessment of the same type,
+    or all earlier ones when it is the first of its type. `means` maps id_assessment to its class mean.
+    """
+    before = grp[grp.date < date]
+    prev = before[before.assessment_type == kind].date.max()
+    earlier = before.assign(mean=before.id_assessment.map(means)).dropna(subset=["mean"])
+    covered = earlier if pd.isna(prev) else earlier[earlier.date > prev]
+    gaps = [covered[covered.assessment_type == t]["mean"].mean() - earlier[earlier.assessment_type == t]["mean"].mean()
+            for t in covered.assessment_type.unique()]
+    if not gaps:
+        return "Med"
+    gap = sum(gaps) / len(gaps)
+    return "Easy" if gap > DIFFICULTY_CUT else "Hard" if gap < -DIFFICULTY_CUT else "Med"
+
+
+def _features(a, grp, sa, clicks, students, difficulty):
+    """Perf, Study and Timeliness for one assessment, from dates before a.date; difficulty is given."""
     prior = grp[grp.date < a.date]
     sp = sa[sa.id_assessment.isin(prior.id_assessment)]
     w = sp.weight + 1e-9  # a zero-weight item still counts if it is all there is
@@ -85,15 +107,13 @@ def _features(a, grp, sa, clicks, students, prev_mean):
     clk = clicks[clicks.date < a.date].groupby("id_student").sum_click.sum()
     study = bucket(clk.reindex(students).fillna(0), 3)
     tl = pd.Series(np.select([frac == 0, frac <= SOME_LATE_MAX], [1, 2], 3), frac.index)
-    diff = sa[sa.id_assessment == a.id_assessment].score.mean() - prev_mean
-    d = 1 if diff > DIFFICULTY_CUT else (3 if diff < -DIFFICULTY_CUT else 2)
     return pd.DataFrame(
         {
             "id_student": perf.index,
             "perf": label(bucket(perf, 3), LEVELS).values,
             "study": label(study.reindex(perf.index), LEVELS).values,
             "timeliness": label(tl.reindex(perf.index), TIMELINESS).values,
-            "exam_difficulty": DIFFICULTY[d - 1],
+            "exam_difficulty": difficulty,
             "active_share": active_share(clicks, students, a.date).reindex(perf.index).values,
         }
     )
@@ -129,7 +149,7 @@ def build_tables(info, courses, assessments, student_assessment, student_vle):
             prior = grp[grp.date < a.date].id_assessment.map(means).dropna()
             if prior.empty:
                 continue
-            f = _features(a, grp, sa_p, cl_p, students, prior.mean())
+            f = _features(a, grp, sa_p, cl_p, students, exam_difficulty(a.date, a.assessment_type, grp, means))
             sc = sa_p[sa_p.id_assessment == a.id_assessment].set_index("id_student").score
             f["has_score"] = f.id_student.isin(sc.index)
             f["exam_standing"] = bucket(sc, 10).reindex(f.id_student).values
